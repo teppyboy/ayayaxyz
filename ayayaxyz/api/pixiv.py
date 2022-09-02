@@ -4,6 +4,7 @@ from pathlib import Path, PurePath
 from io import BytesIO
 from random import randint
 from threading import Thread
+import sys
 import time
 import asyncio
 import argparse
@@ -48,7 +49,6 @@ class PixivSearchRelatedError(PixivSearchError):
 class Pixiv:
     def __init__(self):
         self._pixiv = AppPixivAPI()
-        self._gppt = GetPixivToken()
         self._path = Path("./pixiv/")
         self._path.mkdir(parents=True, exist_ok=True)
         # Tag translation
@@ -76,6 +76,9 @@ class Pixiv:
         if self._login_thread:
             return
         try:
+            if not 'gppt' in sys.modules:
+                from gppt import GetPixivToken
+                self._gppt = GetPixivToken()
             login_rsp = self._gppt.login(headless=True, user=username, pass_=password)
         except Exception as e:
             raise PixivLoginError(e)
