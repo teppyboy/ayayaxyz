@@ -20,6 +20,8 @@ from ayayaxyz.api.pixiv import (
     PixivSearchError,
     PixivLoginError,
 )
+from flask import Flask
+from threading import Thread
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -432,13 +434,21 @@ def init_pixiv():
         logging.error("Logging into Pixiv failed: {}".format(e))
 
 
-def init():
-    init_pixiv()
+def init_flask():
+    app = Flask(__name__)
 
+    @app.route("/")
+    def root():
+        return "AyayaXYZ is running correctly."
+
+    thread = Thread(target=app.run, kwargs={'host': "0.0.0.0", 'port': "8080"})
+    thread.daemon = True
+    thread.start()
 
 def main():
     # Initialize task unrelated to Telegram bot itself.
-    init()
+    init_pixiv()
+    init_flask()
     application = ApplicationBuilder().token(os.environ.get("TOKEN")).build()
     application.add_handlers(
         [CommandHandler("start", start_cmd), CommandHandler("pixiv", pixiv_cmd)]
