@@ -1,5 +1,4 @@
 from pixivpy3 import *
-from gppt import GetPixivToken
 from pathlib import Path, PurePath
 from io import BytesIO
 from random import randint
