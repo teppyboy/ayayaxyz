@@ -441,9 +441,10 @@ def init_flask():
     def root():
         return "AyayaXYZ is running correctly."
 
-    thread = Thread(target=app.run, kwargs={'host': "0.0.0.0", 'port': "8080"})
+    thread = Thread(target=app.run, kwargs={"host": "0.0.0.0", "port": "8080"})
     thread.daemon = True
     thread.start()
+
 
 def main():
     # Initialize task unrelated to Telegram bot itself.
