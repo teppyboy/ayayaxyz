@@ -78,7 +78,7 @@ class Pixiv:
             if not "gppt" in sys.modules:
                 from gppt import GetPixivToken
 
-                self._gppt = GetPixivToken()
+            self._gppt = GetPixivToken()
             login_rsp = self._gppt.login(headless=True, user=username, pass_=password)
         except Exception as e:
             raise PixivLoginError(e)
