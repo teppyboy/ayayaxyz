@@ -59,6 +59,7 @@ class Pixiv:
     def login_token(self, refresh_token):
         if self._login_thread:
             return
+
         def _login():
             while True:
                 try:
@@ -66,6 +67,7 @@ class Pixiv:
                 except PixivError as e:
                     raise PixivLoginError(e)
                 time.sleep(randint(900, 1200))
+
         self._login_thread = Thread(target=_login)
         self._login_thread.daemon = True
         self._login_thread.start()
@@ -164,15 +166,15 @@ class Pixiv:
             found_tags = set()
             for tag in current_image["tags"]:
                 for kw in tags:
+                    kw_set = set(kw.split(" "))
                     print("parsing tag:", tag["name"], tag["translated_name"])
-                    print("current tag:", kw)
-                    if tag["translated_name"] is not None and set(
-                        kw.split(" ")
-                    ).issubset(tag["translated_name"].lower().split(" ")):
+                    print("current tag:", kw_set)
+                    if tag["translated_name"] is not None and kw_set.issubset(
+                        tag["translated_name"].lower().split(" ")
+                    ):
                         found_tags.add(kw)
-                    if set(kw.split(" ")).issubset(tag["name"].lower().split(" ")):
+                    if kw_set.issubset(tag["name"].lower().split(" ")):
                         found_tags.add(kw)
-                    print(found_tags)
             print("final tags", found_tags, set(tags))
             if set(tags) == found_tags:
                 image = current_image
