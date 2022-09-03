@@ -210,12 +210,14 @@ async def pixiv_related_cmd(
             [
                 ("Next", cb_next, "pixiv-search-cb-next-{id}"),
                 ("Related", cb_related, "pixiv-search-cb-related-{id}"),
+            ],
+            [
                 (
                     "Original image & All pages",
                     cb_getoriginalres,
                     "pixiv-search-cb-originalimage-{id}",
-                ),
-            ]
+                )
+            ],
         ],
         application=context.application,
     )
@@ -309,12 +311,14 @@ async def pixiv_search_cmd(
             [
                 ("Next", cb_next, "pixiv-search-cb-next-{id}"),
                 ("Related", cb_related, "pixiv-search-cb-related-{id}"),
+            ],
+            [
                 (
                     "Original image & All pages",
                     cb_getoriginalres,
                     "pixiv-search-cb-originalimage-{id}",
-                ),
-            ]
+                )
+            ],
         ],
         application=context.application,
     )
