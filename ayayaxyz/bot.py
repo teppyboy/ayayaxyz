@@ -1,7 +1,6 @@
 import argparse
 import os
 import logging
-import secrets
 import ayayaxyz.helper as helper
 from copy import copy
 from telegram import Update, InputMediaPhoto, InlineKeyboardMarkup, InlineKeyboardButton
@@ -10,10 +9,8 @@ from telegram.ext import (
     ContextTypes,
     CommandHandler,
     CallbackContext,
-    CallbackQueryHandler,
 )
 from telegram.error import TelegramError
-from telegram.helpers import escape_markdown
 from ayayaxyz.api.pixiv import (
     Pixiv,
     PixivDownloadError,
@@ -87,7 +84,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
     if not quick:
 
         async def cb_tryqid(_: Update, __: CallbackContext):
-            await pixiv_related_cmd(update, context, quick=True)
+            await pixiv_id_cmd(update, context, quick=True)
 
         buttons = helper.buttons_build(
             [[("Try again with qid", cb_tryqid, "pixiv-id-tryqid-{id}")]],
@@ -203,36 +200,25 @@ async def pixiv_related_cmd(
         clone_context.args = [str(illust["id"])]
         await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
 
+    async def cb_getoriginalres(_: Update, __: CallbackContext):
+        clone_context = copy(context)
+        clone_context.args = [str(illust["id"])]
+        await pixiv_id_cmd(update, clone_context)
+
     buttons = helper.buttons_build(
         [
             [
                 ("Next", cb_next, "pixiv-search-cb-next-{id}"),
                 ("Related", cb_related, "pixiv-search-cb-related-{id}"),
+                (
+                    "Original image & All pages",
+                    cb_getoriginalres,
+                    "pixiv-search-cb-originalimage-{id}",
+                ),
             ]
         ],
         application=context.application,
     )
-
-    if quick:
-
-        async def cb_getoriginalres(_: Update, __: CallbackContext):
-            clone_context = copy(context)
-            clone_context.args = [str(illust["id"])]
-            await pixiv_id_cmd(update, clone_context)
-
-        buttons = helper.buttons_build(
-            [
-                [
-                    (
-                        "Original Image",
-                        cb_getoriginalres,
-                        "pixiv-search-cb-originalimage-{id}",
-                    )
-                ]
-            ],
-            application=context.application,
-            base=buttons,
-        )
 
     try:
         await message.reply_photo(
@@ -313,36 +299,25 @@ async def pixiv_search_cmd(
         clone_context.args = [str(illusts_search["id"])]
         await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
 
+    async def cb_getoriginalres(_: Update, __: CallbackContext):
+        clone_context = copy(context)
+        clone_context.args = [str(illusts_search["id"])]
+        await pixiv_id_cmd(update, clone_context)
+
     buttons = helper.buttons_build(
         [
             [
                 ("Next", cb_next, "pixiv-search-cb-next-{id}"),
                 ("Related", cb_related, "pixiv-search-cb-related-{id}"),
+                (
+                    "Original image & All pages",
+                    cb_getoriginalres,
+                    "pixiv-search-cb-originalimage-{id}",
+                ),
             ]
         ],
         application=context.application,
     )
-
-    if quick:
-
-        async def cb_getoriginalres(_: Update, __: CallbackContext):
-            clone_context = copy(context)
-            clone_context.args = [str(illusts_search["id"])]
-            await pixiv_id_cmd(update, clone_context)
-
-        buttons = helper.buttons_build(
-            [
-                [
-                    (
-                        "Original Image",
-                        cb_getoriginalres,
-                        "pixiv-search-cb-originalimage-{id}",
-                    )
-                ]
-            ],
-            application=context.application,
-            base=buttons,
-        )
 
     try:
         await message.reply_photo(
