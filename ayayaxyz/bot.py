@@ -84,6 +84,15 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         ),
         silent=True,
     )
+    if not quick:
+
+        async def cb_tryqid(_: Update, __: CallbackContext):
+            await pixiv_related_cmd(update, context, quick=True)
+
+        buttons = helper.buttons_build(
+            [[("Try again with qid", cb_tryqid, "pixiv-id-tryqid-{id}")]],
+            application=context.application,
+        )
     pictures = [int(x) - 1 for x in context.args[1:]]
     quality = "original"
     if quick:
@@ -96,37 +105,46 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
             limit=9,
         )
     except PixivDownloadError as e:
-        await helper.edit_error(
-            message=notice_msg,
-            text="Failed to fetch illustration: <code>{}</code>".format(e),
-        )
+        msg_kwargs = {
+            "message": notice_msg,
+            "text": "Failed to fetch illustration: <code>{}</code>".format(e),
+        }
+        if not quick:
+            msg_kwargs.update(
+                {"reply_markup": InlineKeyboardMarkup(inline_keyboard=buttons)}
+            )
+        await helper.edit_error(**msg_kwargs)
         return
     logging.info("Trying to send images bytes...")
+    caption = "https://www.pixiv.net/en/artworks/{illust_id}".format(
+        illust_id=illust_id
+    )
     try:
         if len(illusts) == 1:
             await message.reply_photo(
                 photo=illusts[0][0].getvalue(),
                 filename=illusts[0][1],
-                caption=escape_markdown(
-                    "https://www.pixiv.net/en/artworks/{illust_id}".format(
-                        illust_id=illust_id
-                    ),
-                    version=2,
-                ),
-                parse_mode="MarkdownV2",
+                caption=caption,
             )
         else:
-            await message.reply_media_group(
+            msgs = await message.reply_media_group(
                 media=[
                     InputMediaPhoto(media=x[0].getvalue(), filename=x[1])
                     for x in illusts
                 ],
             )
+            await helper.reply_html(msgs[-1], text=caption)
         await notice_msg.delete()
     except TelegramError as e:
-        await helper.edit_error(
-            message=notice_msg, text="Failed to send images: <code>{}</code>".format(e)
-        )
+        msg_kwargs = {
+            "message": notice_msg,
+            "text": "Failed to send images: <code>{}</code>".format(e),
+        }
+        if not quick:
+            msg_kwargs.update(
+                {"reply_markup": InlineKeyboardMarkup(inline_keyboard=buttons)}
+            )
+        await helper.edit_error(**msg_kwargs)
         logging.warning("Error while sending message: {}".format(e))
 
 
@@ -174,86 +192,59 @@ async def pixiv_related_cmd(
         return
 
     logging.info("Trying to send images bytes...")
-    logging.info("Generating callback for button...")
-    cb_nextimage_id = secrets.token_urlsafe(16)
-    cb_relatedimage_id = secrets.token_urlsafe(16)
 
-    async def cb_nextimage(_: Update, __: CallbackContext):
+    async def cb_next(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = ",".join(tags).split(" ")
         await pixiv_search_cmd(update, clone_context, quick=quick)
 
-    async def cb_relatedimage(_: Update, __: CallbackContext):
+    async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illust["id"])]
         await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
 
-    context.application.add_handlers(
+    buttons = helper.buttons_build(
         [
-            CallbackQueryHandler(
-                cb_nextimage, "pixiv-search-cb-nextimage-{}".format(cb_nextimage_id)
-            ),
-            CallbackQueryHandler(
-                cb_relatedimage,
-                "pixiv-search-cb-relatedimage-{}".format(cb_relatedimage_id),
-            ),
-        ]
+            [
+                ("Next", cb_next, "pixiv-search-cb-next-{id}"),
+                ("Related", cb_related, "pixiv-search-cb-related-{id}"),
+            ]
+        ],
+        application=context.application,
     )
 
-    buttons = [
-        [
-            InlineKeyboardButton(
-                "Next",
-                callback_data="pixiv-search-cb-nextimage-{}".format(cb_nextimage_id),
-            ),
-            InlineKeyboardButton(
-                "Related",
-                callback_data="pixiv-search-cb-relatedimage-{}".format(
-                    cb_relatedimage_id
-                ),
-            ),
-        ]
-    ]
-
     if quick:
-        cb_getoriginalres_id = secrets.token_urlsafe(16)
 
         async def cb_getoriginalres(_: Update, __: CallbackContext):
             clone_context = copy(context)
             clone_context.args = [str(illust["id"])]
             await pixiv_id_cmd(update, clone_context)
 
-        context.application.add_handler(
-            CallbackQueryHandler(
-                cb_getoriginalres,
-                "pixiv-search-cb-getoriginalres-{}".format(cb_getoriginalres_id),
-            )
-        )
-        buttons.append(
+        buttons = helper.buttons_build(
             [
-                InlineKeyboardButton(
-                    "Original Image",
-                    callback_data="pixiv-search-cb-getoriginalres-{}".format(
-                        cb_getoriginalres_id
-                    ),
-                )
-            ]
+                [
+                    (
+                        "Original Image",
+                        cb_getoriginalres,
+                        "pixiv-search-cb-originalimage-{id}",
+                    )
+                ]
+            ],
+            application=context.application,
+            base=buttons,
         )
 
     try:
         await message.reply_photo(
             photo=illusts[0][0].getvalue(),
             filename=illusts[0][1],
-            caption=escape_markdown(
-                "https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
-                    illust_id=illust["id"],
-                    notice="\nThe image is in lower resolution, click 'Original image' to get full resolution"
-                    if quality != "original"
-                    else "",
-                ),
-                version=2,
+            caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
+                illust_id=illust["id"],
+                notice="\nThis image has low resolution, click <i>Original image</i> to get higher resolution"
+                if quality != "original"
+                else "",
             ),
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         )
         await notice_msg.delete()
@@ -312,85 +303,58 @@ async def pixiv_search_cmd(
         logging.warning("Error while downloading images: {}".format(e))
         return
 
-    logging.info("Trying to send images bytes...")
     logging.info("Generating callback for button...")
-    cb_nextimage_id = secrets.token_urlsafe(16)
-    cb_relatedimage_id = secrets.token_urlsafe(16)
 
-    async def cb_nextimage(_: Update, __: CallbackContext):
+    async def cb_next(_: Update, __: CallbackContext):
         await pixiv_search_cmd(update, context, quick=quick)
 
-    async def cb_relatedimage(_: Update, __: CallbackContext):
+    async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illusts_search["id"])]
         await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
 
-    context.application.add_handlers(
+    buttons = helper.buttons_build(
         [
-            CallbackQueryHandler(
-                cb_nextimage, "pixiv-search-cb-nextimage-{}".format(cb_nextimage_id)
-            ),
-            CallbackQueryHandler(
-                cb_relatedimage,
-                "pixiv-search-cb-relatedimage-{}".format(cb_relatedimage_id),
-            ),
-        ]
+            [
+                ("Next", cb_next, "pixiv-search-cb-next-{id}"),
+                ("Related", cb_related, "pixiv-search-cb-related-{id}"),
+            ]
+        ],
+        application=context.application,
     )
 
-    buttons = [
-        [
-            InlineKeyboardButton(
-                "Next",
-                callback_data="pixiv-search-cb-nextimage-{}".format(cb_nextimage_id),
-            ),
-            InlineKeyboardButton(
-                "Related",
-                callback_data="pixiv-search-cb-relatedimage-{}".format(
-                    cb_relatedimage_id
-                ),
-            ),
-        ]
-    ]
-
     if quick:
-        cb_getoriginalres_id = secrets.token_urlsafe(16)
 
         async def cb_getoriginalres(_: Update, __: CallbackContext):
             clone_context = copy(context)
             clone_context.args = [str(illusts_search["id"])]
             await pixiv_id_cmd(update, clone_context)
 
-        context.application.add_handler(
-            CallbackQueryHandler(
-                cb_getoriginalres,
-                "pixiv-search-cb-getoriginalres-{}".format(cb_getoriginalres_id),
-            )
-        )
-        buttons.append(
+        buttons = helper.buttons_build(
             [
-                InlineKeyboardButton(
-                    "Original Image",
-                    callback_data="pixiv-search-cb-getoriginalres-{}".format(
-                        cb_getoriginalres_id
-                    ),
-                )
-            ]
+                [
+                    (
+                        "Original Image",
+                        cb_getoriginalres,
+                        "pixiv-search-cb-originalimage-{id}",
+                    )
+                ]
+            ],
+            application=context.application,
+            base=buttons,
         )
 
     try:
         await message.reply_photo(
             photo=illusts[0][0].getvalue(),
             filename=illusts[0][1],
-            caption=escape_markdown(
-                "https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
-                    illust_id=illusts_search["id"],
-                    notice="\nThe image is in lower resolution, click 'Original image' to get full resolution"
-                    if quality != "original"
-                    else "",
-                ),
-                version=2,
+            caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
+                illust_id=illusts_search["id"],
+                notice="\nThis image has low resolution, click <i>Original image</i> to get higher resolution & all pages"
+                if quality != "original"
+                else "",
             ),
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         )
         await notice_msg.delete()

@@ -70,6 +70,7 @@ class Pixiv:
         self._login_thread = Thread(target=_login)
         self._login_thread.daemon = True
         self._login_thread.start()
+        time.sleep(1)
 
     def login(self, username, password):
         if self._login_thread:

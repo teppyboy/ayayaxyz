@@ -1,4 +1,7 @@
-from telegram import Message
+from typing import Any
+from telegram import Message, InlineKeyboardButton
+from telegram.ext import Application, CallbackQueryHandler
+import secrets
 
 
 async def reply_status(message: Message, text: str, silent=False, **kwargs):
@@ -48,3 +51,35 @@ async def edit_html(message: Message, text: str, **kwargs):
     return await message.edit_text(
         text=text, parse_mode="HTML", disable_web_page_preview=True, **kwargs
     )
+
+
+def button_build(button: tuple[str, Any, str], application: Application):
+    id = secrets.token_urlsafe(16)
+    pattern = button[2].format(id=id)
+    application.add_handler(
+        CallbackQueryHandler(
+            button[1],
+            pattern,
+        )
+    )
+    button = InlineKeyboardButton(
+        button[0],
+        callback_data=pattern,
+    )
+    return button
+
+
+def buttons_build(
+    button_list: list[list[tuple[str, Any, str]]],
+    application: Application,
+    base: list[list[InlineKeyboardButton]] = None,
+) -> list[list[InlineKeyboardButton]]:
+    if base is None:
+        base = []
+    btn = base
+    for button_row in button_list:
+        btn_row = []
+        for button in button_row:
+            btn_row.append(button_build(button, application=application))
+        btn.append(btn_row)
+    return btn
