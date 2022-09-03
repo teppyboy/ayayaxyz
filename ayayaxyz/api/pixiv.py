@@ -127,14 +127,21 @@ class Pixiv:
                     images_job.append(
                         self._download_illust(page["image_urls"][quality])
                     )
-            images = await asyncio.gather(*images_job)
+            try:
+                images = await asyncio.gather(*images_job)
+            except PixivError as e:
+                raise PixivDownloadError(e)
             return images
         print("Single page illustration.")
         if quality == "original":
             illust_dl = illust["meta_single_page"]["original_image_url"]
         else:
             illust_dl = illust["image_urls"][quality]
-        return [await self._download_illust(illust_dl)]
+        try:
+            images = [await self._download_illust(illust_dl)]
+        except PixivError as e:
+            raise PixivDownloadError(e)
+        return images
 
     def _get_raw_tags(self, image):
         tags = []
