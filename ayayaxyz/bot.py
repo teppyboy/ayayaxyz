@@ -3,7 +3,7 @@ import os
 import logging
 import ayayaxyz.helper as helper
 from copy import copy
-from telegram import Update, InputMediaPhoto, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, InputMediaPhoto, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -24,6 +24,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
+
+app = Flask(__name__)
 pixiv = Pixiv()
 
 
@@ -213,7 +215,7 @@ async def pixiv_related_cmd(
             ],
             [
                 (
-                    "Original image & All pages",
+                    "Hi-res & All pages",
                     cb_getoriginalres,
                     "pixiv-search-cb-originalimage-{id}",
                 )
@@ -228,7 +230,7 @@ async def pixiv_related_cmd(
             filename=illusts[0][1],
             caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
                 illust_id=illust["id"],
-                notice="\nThis image has low resolution, click <i>Original image</i> to get higher resolution"
+                notice="\nThis image has low resolution, click <i>Hi-res</i> to get higher resolution"
                 if quality != "original"
                 else "",
             ),
@@ -314,7 +316,7 @@ async def pixiv_search_cmd(
             ],
             [
                 (
-                    "Original image & All pages",
+                    "Hi-res & All pages",
                     cb_getoriginalres,
                     "pixiv-search-cb-originalimage-{id}",
                 )
@@ -329,7 +331,7 @@ async def pixiv_search_cmd(
             filename=illusts[0][1],
             caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
                 illust_id=illusts_search["id"],
-                notice="\nThis image has low resolution, click <i>Original image</i> to get higher resolution & all pages"
+                notice="\nThis image has low resolution, click <i>Hi-res</i> to get higher resolution & all pages"
                 if quality != "original"
                 else "",
             ),
@@ -375,11 +377,11 @@ def init_pixiv():
             )
     except PixivLoginError as e:
         logging.error("Logging into Pixiv failed: {}".format(e))
+    else:
+        pixiv.flask_api(app=app)
 
 
 def init_flask():
-    app = Flask(__name__)
-
     @app.route("/")
     def root():
         return "AyayaXYZ is running correctly."

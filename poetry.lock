@@ -16,6 +16,14 @@ test = ["contextlib2", "coverage[toml] (>=4.5)", "hypothesis (>=4.0)", "mock (>=
 trio = ["trio (>=0.16)"]
 
 [[package]]
+name = "appdirs"
+version = "1.4.4"
+description = "A small Python module for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "APScheduler"
 version = "3.9.1"
 description = "In-process task scheduler with Cron-like capabilities"
@@ -41,6 +49,17 @@ testing = ["mock", "pytest", "pytest-asyncio", "pytest-asyncio (<0.6)", "pytest-
 tornado = ["tornado (>=4.3)"]
 twisted = ["twisted"]
 zookeeper = ["kazoo"]
+
+[[package]]
+name = "asgiref"
+version = "3.5.2"
+description = "ASGI specs, helper code, and adapters"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+tests = ["mypy (>=0.800)", "pytest", "pytest-asyncio"]
 
 [[package]]
 name = "async_generator"
@@ -170,6 +189,7 @@ optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
+asgiref = {version = ">=3.2", optional = true, markers = "extra == \"async\""}
 click = ">=8.0"
 itsdangerous = ">=2.0"
 Jinja2 = ">=3.0"
@@ -731,16 +751,24 @@ login = ["gppt"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "ac5bd3837c41037983c509d9dc6a31f2dcac4dac77180d31b707d95819a830bb"
+content-hash = "7af6530b91980ec1ac2a3cad72474fd3391a21f4fc6594bb9148a332b50152cd"
 
 [metadata.files]
 anyio = [
     {file = "anyio-3.6.1-py3-none-any.whl", hash = "sha256:cb29b9c70620506a9a8f87a309591713446953302d7d995344d0d7c6c0c9a7be"},
     {file = "anyio-3.6.1.tar.gz", hash = "sha256:413adf95f93886e442aea925f3ee43baa5a765a64a0f52c6081894f9992fdd0b"},
 ]
+appdirs = [
+    {file = "appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"},
+    {file = "appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41"},
+]
 APScheduler = [
     {file = "APScheduler-3.9.1-py2.py3-none-any.whl", hash = "sha256:ddc25a0ddd899de44d7f451f4375fb971887e65af51e41e5dcf681f59b8b2c9a"},
     {file = "APScheduler-3.9.1.tar.gz", hash = "sha256:65e6574b6395498d371d045f2a8a7e4f7d50c6ad21ef7313d15b1c7cf20df1e3"},
+]
+asgiref = [
+    {file = "asgiref-3.5.2-py3-none-any.whl", hash = "sha256:1d2880b792ae8757289136f1db2b7b99100ce959b2aa57fd69dab783d05afac4"},
+    {file = "asgiref-3.5.2.tar.gz", hash = "sha256:4a29362a6acebe09bf1d6640db38c1dc3d9217c68e6f9f6204d72667fc19a424"},
 ]
 async_generator = [
     {file = "async_generator-1.10-py3-none-any.whl", hash = "sha256:01c7bf666359b4967d2cda0000cc2e4af16a0ae098cbffcb8472fb9e8ad6585b"},

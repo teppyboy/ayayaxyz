@@ -1,8 +1,12 @@
+from urllib.parse import urlparse
 from pixivpy3 import *
 from pathlib import Path, PurePath
 from io import BytesIO
 from random import randint
 from threading import Thread
+from flask import send_file, Flask
+from appdirs import user_cache_dir
+import logging
 import sys
 import time
 import asyncio
@@ -48,8 +52,13 @@ class PixivSearchRelatedError(PixivSearchError):
 class Pixiv:
     def __init__(self):
         self._pixiv = AppPixivAPI()
-        self._path = Path("./pixiv/")
-        self._path.mkdir(parents=True, exist_ok=True)
+        self._path = Path("./pixiv")
+        if not self._path.is_dir():
+            self._path = Path(
+                user_cache_dir("ayayaxyz-telegram", "tretrauit")
+            ).joinpath("pixiv-api")
+            self._path.mkdir(parents=True, exist_ok=True)
+        logging.info("Pixiv API cache path: {}".format(self._path))
         # Tag translation
         self._pixiv.set_accept_language("en-us")
         # Login workaround
@@ -85,10 +94,17 @@ class Pixiv:
             raise PixivLoginError(e)
         self.login_token(refresh_token=login_rsp.get("refresh_token"))
 
-    async def _download_illust(self, url):
+    async def _download_illust(self, url, path: Path = None):
+        if path:
+            path = self._path.joinpath(path).parent
+            path.mkdir(parents=True, exist_ok=True)
+            image_bytes = None
+        else:
+            image_bytes = BytesIO()
         image_name = PurePath(url).name
-        image_bytes = BytesIO()
-        await asyncio.to_thread(self._pixiv.download, url, fname=image_bytes)
+        await asyncio.to_thread(
+            self._pixiv.download, url, path=str(path), fname=image_bytes
+        )
         return (image_bytes, image_name)
 
     async def get_illust_from_id(self, illust_id: int):
@@ -263,3 +279,32 @@ class Pixiv:
         tags = parsed.tags
         image = self.search_illust(tags, related=related)
         return self.download_illust(image["id"], page_list)
+
+    async def download_illust_to_cache(self, illust_url: str):
+        parsed = urlparse(illust_url)
+        # Remove the root "/" in the path from url.
+        path = Path(parsed.path[1:])
+        if not self._path.joinpath(path).is_file():
+            await self._download_illust(url=illust_url, path=path)
+
+    def flask_api(self, app: Flask, route: str = None):
+        if not route:
+            route = "/pixiv"
+
+        logger = logging.getLogger("pixiv-flask-api")
+
+        @app.route(route + "/<path:url>", methods=["GET"])
+        async def pixiv_api(url):
+            parsed = urlparse(url)
+            if parsed.netloc != "i.pximg.net":
+                return "Must be a i.pximg.net url", 400
+            logger.info("Got file: {}".format(url))
+            # Remove the root "/" in the path from url.
+            path = Path(parsed.path[1:])
+            # Workaround because Flask treat the module path as the base path instead
+            full_path = Path("..").joinpath(self._path.joinpath(path))
+            if not self._path.joinpath(path).is_file():
+                logger.info("File doesn't exist, downloading...")
+                await self._download_illust(url=url, path=path)
+            logger.info("Sending file...")
+            return send_file(path_or_file=full_path, etag=True)
