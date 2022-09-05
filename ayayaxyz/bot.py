@@ -28,7 +28,7 @@ logging.basicConfig(
 
 app = Flask(__name__)
 pixiv = Pixiv()
-WEB_URL = "https://ayayaxyz.tretrauit.repl.co"
+web_url = os.getenv("WEB_URL")
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -326,7 +326,7 @@ async def pixiv_search_cmd(
                     "Download",
                     None,
                     "{web}/pixiv/{url}".format(
-                        web=WEB_URL,
+                        web=web_url,
                         url=(
                             await pixiv.get_illust_download_url(illust=illusts_search)
                         )[0],
@@ -379,14 +379,14 @@ async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def init_pixiv():
     try:
-        if os.environ.get("PIXIV_REFRESH_TOKEN"):
+        if os.getenv("PIXIV_REFRESH_TOKEN"):
             logging.info("Logging into Pixiv using refresh token...")
-            pixiv.login_token(os.environ.get("PIXIV_REFRESH_TOKEN"))
+            pixiv.login_token(os.getenv("PIXIV_REFRESH_TOKEN"))
         else:
             logging.info("Logging into Pixiv using credentials...")
             logging.warning("It's recommended to use refresh token to login instead.")
             pixiv.login(
-                os.environ.get("PIXIV_USERNAME"), os.environ.get("PIXIV_PASSWORD")
+                os.getenv("PIXIV_USERNAME"), os.getenv("PIXIV_PASSWORD")
             )
     except PixivLoginError as e:
         logging.error("Logging into Pixiv failed: {}".format(e))
@@ -410,7 +410,7 @@ def main():
     # Initialize task unrelated to Telegram bot itself.
     init_pixiv()
     init_flask()
-    application = ApplicationBuilder().token(os.environ.get("TOKEN")).build()
+    application = ApplicationBuilder().token(os.getenv("TOKEN")).build()
     application.add_handlers(
         [CommandHandler("start", start_cmd), CommandHandler("pixiv", pixiv_cmd)]
     )

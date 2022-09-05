@@ -8,6 +8,7 @@ To run this bot, you need to have these environment variables (or put them in .e
 
 ```bash
 TOKEN=<Telegram bot token>
+WEB_URL=<website url for API features>
 PIXIV_REFRESH_TOKEN=<refresh-token>
 # if PIXIV_REFRESH_TOKEN doesn't exist, it'll read username & password from env vars below
 PIXIV_USERNAME=<username>
