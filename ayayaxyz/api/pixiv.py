@@ -303,10 +303,12 @@ class Pixiv:
             elif parsed.scheme == '':
                 if not parsed.path.startswith("i.pximg.net"):
                     return "Must be a i.pximg.net url", 400
+                url = "https://" + parsed.path
                 path = parsed.path.removeprefix("i.pximg.net/")
             else:
                 if not parsed.path.startswith("/i.pximg.net"):
                     return "Must be a i.pximg.net url", 400
+                url = "https:/" + parsed.path
                 path = parsed.path.removeprefix("/i.pximg.net/")
             logger.info("Got file: {}".format(url))
             # Remove the root "/" in the path from url.
