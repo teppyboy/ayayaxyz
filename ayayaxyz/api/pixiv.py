@@ -295,6 +295,7 @@ class Pixiv:
 
         @app.route(route + "/<path:url>", methods=["GET"])
         async def pixiv_api(url):
+            logger.info("Got a /pixiv request")
             parsed = urlparse(url)
             path = None
             if parsed.netloc != "":
