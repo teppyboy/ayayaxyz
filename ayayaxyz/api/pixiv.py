@@ -296,20 +296,23 @@ class Pixiv:
         @app.route(route + "/<path:url>", methods=["GET"])
         async def pixiv_api(url):
             parsed = urlparse(url)
+            path = None
             if parsed.netloc != "":
                 if parsed.netloc != "i.pximg.net":
                     return "Must be a i.pximg.net url", 400
             elif parsed.scheme == '':
                 if not parsed.path.startswith("i.pximg.net"):
                     return "Must be a i.pximg.net url", 400
-                parsed.path = parsed.path.removeprefix("i.pximg.net")
+                path = parsed.path.removeprefix("i.pximg.net/")
             else:
                 if not parsed.path.startswith("/i.pximg.net"):
                     return "Must be a i.pximg.net url", 400
-                parsed.path = parsed.path.removeprefix("/i.pximg.net")
+                path = parsed.path.removeprefix("/i.pximg.net/")
             logger.info("Got file: {}".format(url))
             # Remove the root "/" in the path from url.
-            path = Path(parsed.path[1:])
+            if path is None:
+                path = parsed.path[1:]
+            path = Path(path)
             # Workaround because Flask treat the module path as the base path instead
             full_path = Path("..").joinpath(self._path.joinpath(path))
             if not self._path.joinpath(path).is_file():
