@@ -18,6 +18,7 @@ from ayayaxyz.api.pixiv import (
     PixivLoginError,
 )
 from flask import Flask
+from waitress import serve
 from threading import Thread
 
 logging.basicConfig(
@@ -386,7 +387,9 @@ def init_flask():
     def root():
         return "AyayaXYZ is running correctly."
 
-    thread = Thread(target=app.run, kwargs={"host": "0.0.0.0", "port": "8080"})
+    thread = Thread(
+        target=serve, kwargs={"app": app, "host": "0.0.0.0", "port": "8080"}
+    )
     thread.daemon = True
     thread.start()
 

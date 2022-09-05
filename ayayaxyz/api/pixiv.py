@@ -293,6 +293,7 @@ class Pixiv:
 
         logger = logging.getLogger("pixiv-flask-api")
         logger.info("Initializing pixiv Flask route...")
+
         @app.route(route + "/<path:url>", methods=["GET"])
         async def pixiv_api(url):
             logger.info("Got a /pixiv request")
@@ -301,7 +302,7 @@ class Pixiv:
             if parsed.netloc != "":
                 if parsed.netloc != "i.pximg.net":
                     return "Must be a i.pximg.net url", 400
-            elif parsed.scheme == '':
+            elif parsed.scheme == "":
                 if not parsed.path.startswith("i.pximg.net"):
                     return "Must be a i.pximg.net url", 400
                 url = "https://" + parsed.path
