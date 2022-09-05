@@ -296,8 +296,17 @@ class Pixiv:
         @app.route(route + "/<path:url>", methods=["GET"])
         async def pixiv_api(url):
             parsed = urlparse(url)
-            if parsed.netloc != "i.pximg.net":
-                return "Must be a i.pximg.net url", 400
+            if parsed.netloc != "":
+                if parsed.netloc != "i.pximg.net":
+                    return "Must be a i.pximg.net url", 400
+            elif parsed.scheme == '':
+                if not parsed.path.startswith("i.pximg.net"):
+                    return "Must be a i.pximg.net url", 400
+                parsed.path = parsed.path.removeprefix("i.pximg.net")
+            else:
+                if not parsed.path.startswith("/i.pximg.net"):
+                    return "Must be a i.pximg.net url", 400
+                parsed.path = parsed.path.removeprefix("/i.pximg.net")
             logger.info("Got file: {}".format(url))
             # Remove the root "/" in the path from url.
             path = Path(parsed.path[1:])
