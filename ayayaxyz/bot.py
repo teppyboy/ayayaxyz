@@ -123,19 +123,24 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
     )
     try:
         if len(illusts) == 1:
-            dl_button = [
+            dl_button = helper.buttons_build(
                 [
-                    (
-                        "Download",
-                        None,
-                        "{web}/pixiv/{url}".format(
-                            web=web_url,
-                            url=(await pixiv.get_illust_download_url(illust=illust))[0],
-                        ),
-                        "url",
-                    )
-                ]
-            ]
+                    [
+                        (
+                            "Download",
+                            None,
+                            "{web}/pixiv/{url}".format(
+                                web=web_url,
+                                url=(
+                                    await pixiv.get_illust_download_url(illust=illust)
+                                )[0],
+                            ),
+                            "url",
+                        )
+                    ]
+                ],
+                application=context.application,
+            )
             await message.reply_photo(
                 photo=illusts[0][0].getvalue(),
                 filename=illusts[0][1],
