@@ -118,6 +118,24 @@ class Pixiv:
             )
         return illust
 
+    async def get_illust_download_url(
+        self, illust, pictures: list[int] = None, quality="original"
+    ):
+        print("Fetching {}".format(illust["id"]))
+        if illust["meta_single_page"] == {}:
+            print("Multiple pages illustration.")
+            images = []
+            for index, page in enumerate(illust["meta_pages"]):
+                if pictures == [] or index in pictures:
+                    images.append(page["image_urls"][quality])
+            return images
+        print("Single page illustration.")
+        if quality == "original":
+            illust_dl = illust["meta_single_page"]["original_image_url"]
+        else:
+            illust_dl = illust["image_urls"][quality]
+        return [illust_dl]
+
     async def download_illust(
         self, illust, pictures: list[int] = None, quality="original", limit: int = None
     ):

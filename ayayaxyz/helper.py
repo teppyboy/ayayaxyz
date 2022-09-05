@@ -53,24 +53,39 @@ async def edit_html(message: Message, text: str, **kwargs):
     )
 
 
-def button_build(button: tuple[str, Any, str], application: Application):
+def button_build(button: tuple[str, Any, str, str], application: Application):
+    try:
+        type = button[3]
+    except (IndexError, ValueError):
+        type = "callback"
+    if not type:
+        type = "callback"
     id = secrets.token_urlsafe(16)
     pattern = button[2].format(id=id)
-    application.add_handler(
-        CallbackQueryHandler(
-            button[1],
-            pattern,
-        )
-    )
-    button = InlineKeyboardButton(
-        button[0],
-        callback_data=pattern,
-    )
+    match type:
+        case "callback":
+            application.add_handler(
+                CallbackQueryHandler(
+                    button[1],
+                    pattern,
+                )
+            )
+            button = InlineKeyboardButton(
+                button[0],
+                callback_data=pattern,
+            )
+        case "url":
+            button = InlineKeyboardButton(
+                button[0],
+                url=pattern,
+            )
+        case _:
+            raise RuntimeError("Unknown type")
     return button
 
 
 def buttons_build(
-    button_list: list[list[tuple[str, Any, str]]],
+    button_list: list[list[tuple[str, Any, str, str]]],
     application: Application,
     base: list[list[InlineKeyboardButton]] = None,
 ) -> list[list[InlineKeyboardButton]]:

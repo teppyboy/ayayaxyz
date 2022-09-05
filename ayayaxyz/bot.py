@@ -28,7 +28,7 @@ logging.basicConfig(
 
 app = Flask(__name__)
 pixiv = Pixiv()
-
+WEB_URL = "https://ayayaxyz.tretrauit.repl.co"
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Hi!")
@@ -320,7 +320,18 @@ async def pixiv_search_cmd(
                     "Hi-res & All pages",
                     cb_getoriginalres,
                     "pixiv-search-cb-originalimage-{id}",
-                )
+                ),
+                (
+                    "Download",
+                    None,
+                    "{web}/pixiv/{url}".format(
+                        web=WEB_URL,
+                        url=(
+                            await pixiv.get_illust_download_url(illust=illusts_search)
+                        )[0]
+                    ),
+                    "url",
+                ),
             ],
         ],
         application=context.application,
