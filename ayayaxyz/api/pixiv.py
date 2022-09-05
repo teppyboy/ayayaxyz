@@ -292,7 +292,7 @@ class Pixiv:
             route = "/pixiv"
 
         logger = logging.getLogger("pixiv-flask-api")
-
+        logger.info("Initializing pixiv Flask route...")
         @app.route(route + "/<path:url>", methods=["GET"])
         async def pixiv_api(url):
             logger.info("Got a /pixiv request")
