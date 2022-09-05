@@ -126,7 +126,7 @@ class Pixiv:
             print("Multiple pages illustration.")
             images = []
             for index, page in enumerate(illust["meta_pages"]):
-                if pictures == [] or index in pictures:
+                if pictures is None or pictures == [] or index in pictures:
                     images.append(page["image_urls"][quality])
             return images
         print("Single page illustration.")
