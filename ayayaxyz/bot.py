@@ -90,7 +90,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         async def cb_tryqid(_: Update, __: CallbackContext):
             await pixiv_id_cmd(update, context, quick=True)
 
-        buttons = helper.buttons_build(
+        error_buttons = helper.buttons_build(
             [[("Try again with qid", cb_tryqid, "pixiv-id-tryqid-{id}")]],
             application=context.application,
         )
@@ -98,9 +98,10 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
     quality = "original"
     if quick:
         quality = "large"
+    illust = await pixiv.get_illust_from_id(illust_id)
     try:
         illusts = await pixiv.download_illust(
-            await pixiv.get_illust_from_id(illust_id),
+            illust,
             pictures,
             quality=quality,
             limit=9,
@@ -112,7 +113,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         }
         if not quick:
             msg_kwargs.update(
-                {"reply_markup": InlineKeyboardMarkup(inline_keyboard=buttons)}
+                {"reply_markup": InlineKeyboardMarkup(inline_keyboard=error_buttons)}
             )
         await helper.edit_error(**msg_kwargs)
         return
@@ -122,10 +123,24 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
     )
     try:
         if len(illusts) == 1:
+            dl_button = [
+                [
+                    (
+                        "Download",
+                        None,
+                        "{web}/pixiv/{url}".format(
+                            web=web_url,
+                            url=(await pixiv.get_illust_download_url(illust=illust))[0],
+                        ),
+                        "url",
+                    )
+                ]
+            ]
             await message.reply_photo(
                 photo=illusts[0][0].getvalue(),
                 filename=illusts[0][1],
                 caption=caption,
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=dl_button),
             )
         else:
             msgs = await message.reply_media_group(
@@ -143,7 +158,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         }
         if not quick:
             msg_kwargs.update(
-                {"reply_markup": InlineKeyboardMarkup(inline_keyboard=buttons)}
+                {"reply_markup": InlineKeyboardMarkup(inline_keyboard=error_buttons)}
             )
         await helper.edit_error(**msg_kwargs)
         logging.warning("Error while sending message: {}".format(e))
@@ -220,7 +235,16 @@ async def pixiv_related_cmd(
                     "Hi-res & All pages",
                     cb_getoriginalres,
                     "pixiv-search-cb-originalimage-{id}",
-                )
+                ),
+                (
+                    "Download",
+                    None,
+                    "{web}/pixiv/{url}".format(
+                        web=web_url,
+                        url=(await pixiv.get_illust_download_url(illust=illust))[0],
+                    ),
+                    "url",
+                ),
             ],
         ],
         application=context.application,
@@ -385,9 +409,7 @@ def init_pixiv():
         else:
             logging.info("Logging into Pixiv using credentials...")
             logging.warning("It's recommended to use refresh token to login instead.")
-            pixiv.login(
-                os.getenv("PIXIV_USERNAME"), os.getenv("PIXIV_PASSWORD")
-            )
+            pixiv.login(os.getenv("PIXIV_USERNAME"), os.getenv("PIXIV_PASSWORD"))
     except PixivLoginError as e:
         logging.error("Logging into Pixiv failed: {}".format(e))
     else:
