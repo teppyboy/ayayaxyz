@@ -5,6 +5,7 @@ import ayayaxyz.helper as helper
 from copy import copy
 from telegram import Update, InputMediaPhoto, InlineKeyboardMarkup
 from telegram.ext import (
+    Application,
     ApplicationBuilder,
     ContextTypes,
     CommandHandler,
@@ -389,8 +390,11 @@ async def pixiv_search_cmd(
 
 
 async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    command = context.args[0].lower()
-    context.args = context.args[1:]
+    try:
+        command = context.args[0].lower()
+        context.args = context.args[1:]
+    except (ValueError, KeyError):
+        await helper.reply_error(text="Please specify a sub-command.")
     match command:
         case "id":
             await pixiv_id_cmd(update, context)
@@ -403,10 +407,10 @@ async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case "fix":
             await pixiv_fix_cmd(update)
         case _:
-            await update.effective_message.reply_text(text="Invalid command.")
+            await helper.reply_error(text="Invalid command.")
 
 
-def init_pixiv():
+def init_pixiv(application: Application) -> bool:
     try:
         if os.getenv("PIXIV_REFRESH_TOKEN"):
             logging.info("Logging into Pixiv using refresh token...")
@@ -416,9 +420,14 @@ def init_pixiv():
             logging.warning("It's recommended to use refresh token to login instead.")
             pixiv.login(os.getenv("PIXIV_USERNAME"), os.getenv("PIXIV_PASSWORD"))
     except PixivLoginError as e:
-        logging.error("Logging into Pixiv failed: {}".format(e))
-    else:
-        pixiv.flask_api(app=app)
+        logging.error(
+            "Logging into Pixiv failed, disabling Pixiv-related feature: {}".format(e)
+        )
+        return False
+    pixiv.flask_api(app=app)
+    logging.info("Loading Pixiv commands...")
+    application.add_handler(CommandHandler("pixiv", pixiv_cmd))
+    return True
 
 
 def init_flask():
@@ -435,11 +444,10 @@ def init_flask():
 
 def main():
     # Initialize task unrelated to Telegram bot itself.
-    init_pixiv()
-    init_flask()
     application = ApplicationBuilder().token(os.getenv("TOKEN")).build()
-    application.add_handlers(
-        [CommandHandler("start", start_cmd), CommandHandler("pixiv", pixiv_cmd)]
-    )
+    init_pixiv(application=application)
+    init_flask()
+    logging.info("Loading default commands...")
+    application.add_handlers([CommandHandler("start", start_cmd)])
 
     application.run_polling()
