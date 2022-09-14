@@ -192,7 +192,10 @@ class Pixiv:
         print("Using hacky algorithm...")
         if tags is None:
             return images[randint(0, len(images) - 1)]
-        exclude_tags = set(x.lower()[1:] for x in exclude_tags)
+        if exclude_tags is None:
+            exclude_tags = set()
+        else:
+            exclude_tags = set(x.lower()[1:] for x in exclude_tags)
         tags = set(x.lower() for x in tags)
         image = None
         searched_images = []
@@ -218,16 +221,17 @@ class Pixiv:
             print("beginning tag partial matching")
             found_tags = set()
             for tag in current_image["tags"]:
-                for kw in exclude_tags:
-                    kw_set = set(kw.split(" "))
-                    print("parsing tag:", tag["name"], tag["translated_name"])
-                    print("current blacklist tag:", kw_set)
-                    if tag["translated_name"] is not None and kw_set.issubset(
-                        tag["translated_name"].lower().split(" ")
-                    ):
-                        break
-                    if kw_set.issubset(tag["name"].lower().split(" ")):
-                        break
+                if exclude_tags:
+                    for kw in exclude_tags:
+                        kw_set = set(kw.split(" "))
+                        print("parsing tag:", tag["name"], tag["translated_name"])
+                        print("current blacklist tag:", kw_set)
+                        if tag["translated_name"] is not None and kw_set.issubset(
+                            tag["translated_name"].lower().split(" ")
+                        ):
+                            break
+                        if kw_set.issubset(tag["name"].lower().split(" ")):
+                            break
                 for kw in tags:
                     kw_set = set(kw.split(" "))
                     # print("parsing tag:", tag["name"], tag["translated_name"])
@@ -251,8 +255,12 @@ class Pixiv:
             recurse = 0
         if recurse < 0:
             raise ValueError("Recurse must be greater than 0")
-        exclude_tags = [x for x in tags if x.startswith("-")]
-        tags = set(tags) - set(exclude_tags)
+        if tags:
+            exclude_tags = set(x for x in tags if x.startswith("-"))
+            tags = set(tags) - exclude_tags
+        else:
+            exclude_tags = None
+            tags = set()
         try:
             result = (await asyncio.to_thread(self._pixiv.illust_related, illust_id))[
                 "illusts"
