@@ -3,6 +3,7 @@ from pixivpy3 import *
 from pathlib import Path, PurePath
 from io import BytesIO
 from random import randint
+from secrets import randbelow
 from threading import Thread
 from flask import send_file, Flask
 from appdirs import user_cache_dir
@@ -198,7 +199,7 @@ class Pixiv:
                     "Couldn't find any images matching provided keywords"
                 )
             while True:
-                image_count = randint(0, len(images) - 1)
+                image_count = randbelow(len(images) - 1)
                 if image_count not in searched_images:
                     break
             print("image index", image_count)
@@ -239,7 +240,7 @@ class Pixiv:
 
     async def related_illust(self, illust_id: int, tags: list[str] | set[str] = None, recurse: int = None):
         if recurse is None:
-            recurse = 5
+            recurse = 0
         if recurse < 0:
             raise ValueError("Recurse must be greater than 0")
         exclude_tags = [x for x in tags if x.startswith("-")]
@@ -266,9 +267,9 @@ class Pixiv:
         exclude_tags = set(x for x in tags if x.startswith("-"))
         tags = set(tags) - exclude_tags
         filter = ""
-        if "R-18" not in tags and "r-18" not in tags:
-            # Be safe here, no NSFW ;)
-            filter = "for_ios"
+        # if "R-18" not in tags and "r-18" not in tags:
+        #     # Be safe here, no NSFW ;)
+        #     filter = "for_ios"
         if max_attempt is None:
             max_attempt = 5
         attempt = 0
