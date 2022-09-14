@@ -183,11 +183,12 @@ class Pixiv:
             tags.append(tag["name"])
         return tags
 
-    def _image_from_tag_matching(self, images, tags: list[str] = None):
+    def _image_from_tag_matching(self, images, tags: list[str] | set[str] = None, exclude_tags: list[str] | set[str] = None):
         print("Using hacky algorithm...")
         if tags is None:
             return images[randint(0, len(images) - 1)]
-        tags = [x.lower() for x in tags]
+        exclude_tags = set(x.lower()[1:] for x in exclude_tags)
+        tags = set(x.lower() for x in tags)
         image = None
         searched_images = []
         while image is None:
@@ -210,23 +211,39 @@ class Pixiv:
             print("beginning tag partial matching")
             found_tags = set()
             for tag in current_image["tags"]:
-                for kw in tags:
+                for kw in exclude_tags:
                     kw_set = set(kw.split(" "))
                     print("parsing tag:", tag["name"], tag["translated_name"])
-                    print("current tag:", kw_set)
+                    print("current blacklist tag:", kw_set)
+                    if tag["translated_name"] is not None and kw_set.issubset(
+                        tag["translated_name"].lower().split(" ")
+                    ):
+                        break
+                    if kw_set.issubset(tag["name"].lower().split(" ")):
+                        break
+                for kw in tags:
+                    kw_set = set(kw.split(" "))
+                    # print("parsing tag:", tag["name"], tag["translated_name"])
+                    # print("current tag:", kw_set)
                     if tag["translated_name"] is not None and kw_set.issubset(
                         tag["translated_name"].lower().split(" ")
                     ):
                         found_tags.add(kw)
                     if kw_set.issubset(tag["name"].lower().split(" ")):
                         found_tags.add(kw)
-            print("final tags", found_tags, set(tags))
+            print("final tags", found_tags, tags)
             if set(tags) == found_tags:
                 image = current_image
         print("found image we maybe looking for")
         return image
 
-    async def related_illust(self, illust_id: int, tags: list[str] = None):
+    async def related_illust(self, illust_id: int, tags: list[str] | set[str] = None, recurse: int = None):
+        if recurse is None:
+            recurse = 5
+        if recurse < 0:
+            raise ValueError("Recurse must be greater than 0")
+        exclude_tags = [x for x in tags if x.startswith("-")]
+        tags = set(tags) - set(exclude_tags)
         try:
             result = (await asyncio.to_thread(self._pixiv.illust_related, illust_id))[
                 "illusts"
@@ -235,34 +252,42 @@ class Pixiv:
             raise PixivSearchRelatedError(e)
 
         try:
-            image = self._image_from_tag_matching(result, tags)
+            image = self._image_from_tag_matching(result, tags=tags, exclude_tags=exclude_tags)
         except PixivSearchError as e:
             raise PixivSearchRelatedError(e)
-        return image
+        if recurse == 0:
+            return image
+        return await self.related_illust(image["id"], tags, recurse - 1)
 
-    async def search_illust(self, tags: list[str], related=True, sort=None):
+    async def search_illust(self, tags: list[str] | set[str], related=True, sort=None, max_attempt=None):
         if tags is None:
             raise PixivSearchError("No tags specified.")
-        tags = [x.strip() for x in tags]
-        print(tags)
+        tags_orig = tags
+        exclude_tags = set(x for x in tags if x.startswith("-"))
+        tags = set(tags) - exclude_tags
+        filter = ""
+        if "R-18" not in tags and "r-18" not in tags:
+            # Be safe here, no NSFW ;)
+            filter = "for_ios"
+        if max_attempt is None:
+            max_attempt = 5
         attempt = 0
         image = None
-        sort_by = sort
-        while image is None and attempt < 5:
+        while image is None and attempt < max_attempt:
             print("Search attempt", attempt)
             if sort is None:
-                sort_by = ["date_desc", "popular_desc"][randint(0, 1)]
-            print(sort_by)
+                sort = ["date_desc", "popular_desc"][randint(0, 1)]
+            print(sort)
             try:
                 result = (
                     await asyncio.to_thread(
                         self._pixiv.search_illust,
                         " ".join(tags),
-                        sort=sort_by,
-                        filter="",
+                        sort=sort,
+                        filter=filter,
                     )
                 )["illusts"]
-                image = self._image_from_tag_matching(result, tags)
+                image = self._image_from_tag_matching(result, tags=tags, exclude_tags=exclude_tags)
                 if related:
                     # Strict search
                     related_image = None
@@ -270,7 +295,7 @@ class Pixiv:
                     while related_image is None and related_attempt < 5:
                         try:
                             related_image = await self.related_illust(
-                                image["id"], tags=tags
+                                image["id"], tags=tags_orig
                             )
                         except PixivSearchRelatedError:
                             pass

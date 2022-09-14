@@ -182,7 +182,9 @@ async def pixiv_related_cmd(
         await helper.reply_error(message=message, text=get_id[1])
         return
     illust_id = get_id[1]
-
+    if len(context.args) > 1:
+        keyword = " ".join(context.args[1:])
+        tags = [x.strip() for x in keyword.split(",")]
     notice_msg = await helper.reply_status(
         message=message,
         text="""Searching for image related to <code>{illust_id}</code>...""".format(
@@ -216,9 +218,7 @@ async def pixiv_related_cmd(
     logging.info("Trying to send images bytes...")
 
     async def cb_next(_: Update, __: CallbackContext):
-        clone_context = copy(context)
-        clone_context.args = ",".join(tags).split(" ")
-        await pixiv_search_cmd(update, clone_context, quick=quick)
+        await pixiv_related_cmd(update, context, quick=quick, tags=tags)
 
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
@@ -286,10 +286,7 @@ async def pixiv_search_cmd(
         return
 
     keyword = " ".join(context.args)
-    parser = argparse.ArgumentParser()
-    parser.add_argument("tags", type=str, nargs="*")
-    parsed = parser.parse_args(keyword.split(","))
-    tags = [x.strip() for x in parsed.tags]
+    tags = [x.strip() for x in keyword.split(",")]
     sort = None
     if "-P" in tags or "--popular" in tags:
         print("popular mode")
@@ -312,7 +309,7 @@ async def pixiv_search_cmd(
     )
 
     try:
-        illusts_search = await pixiv.search_illust(tags, sort)
+        illusts_search = await pixiv.search_illust(tags, sort=sort)
     except PixivSearchError as e:
         await helper.edit_error(
             message=notice_msg,
@@ -413,6 +410,10 @@ async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await pixiv_search_cmd(update, context)
         case "qsearch":
             await pixiv_search_cmd(update, context, quick=True)
+        case "related":
+            await pixiv_related_cmd(update, context)
+        case "qrelated":
+            await pixiv_related_cmd(update, context, quick=True)
         case "fix":
             await pixiv_fix_cmd(update)
         case _:
