@@ -1,10 +1,10 @@
-from multiprocessing.sharedctypes import Value
 from urllib.parse import urlparse
 from pixivpy3 import *
 from pathlib import Path, PurePath
 from io import BytesIO
 from random import randint
-from secrets import randbelow
+
+# from secrets import randbelow
 from threading import Thread
 from flask import send_file, Flask
 from appdirs import user_cache_dir
@@ -185,7 +185,12 @@ class Pixiv:
             tags.append(tag["name"])
         return tags
 
-    def _image_from_tag_matching(self, images, tags: list[str] | set[str] = None, exclude_tags: list[str] | set[str] = None):
+    def _image_from_tag_matching(
+        self,
+        images,
+        tags: list[str] | set[str] = None,
+        exclude_tags: list[str] | set[str] = None,
+    ):
         print("Using hacky algorithm...")
         if tags is None:
             return images[randint(0, len(images) - 1)]
@@ -201,10 +206,7 @@ class Pixiv:
                 )
             while True:
                 print("images size", len(images))
-                try:
-                    image_count = randbelow(len(images) - 1)
-                except ValueError:
-                    image_count = randint(0, len(images) - 1)
+                image_count = randint(0, len(images) - 1)
                 print("image count", image_count)
                 if image_count not in searched_images:
                     break
@@ -244,7 +246,9 @@ class Pixiv:
         print("found image we maybe looking for")
         return image
 
-    async def related_illust(self, illust_id: int, tags: list[str] | set[str] = None, recurse: int = None):
+    async def related_illust(
+        self, illust_id: int, tags: list[str] | set[str] = None, recurse: int = None
+    ):
         if recurse is None:
             recurse = 0
         if recurse < 0:
@@ -259,14 +263,18 @@ class Pixiv:
             raise PixivSearchRelatedError(e)
 
         try:
-            image = self._image_from_tag_matching(result, tags=tags, exclude_tags=exclude_tags)
+            image = self._image_from_tag_matching(
+                result, tags=tags, exclude_tags=exclude_tags
+            )
         except PixivSearchError as e:
             raise PixivSearchRelatedError(e)
         if recurse == 0:
             return image
         return await self.related_illust(image["id"], tags, recurse - 1)
 
-    async def search_illust(self, tags: list[str] | set[str], related=True, sort=None, max_attempt=None):
+    async def search_illust(
+        self, tags: list[str] | set[str], related=True, sort=None, max_attempt=None
+    ):
         if tags is None:
             raise PixivSearchError("No tags specified.")
         tags_orig = tags
@@ -294,7 +302,9 @@ class Pixiv:
                         filter=filter,
                     )
                 )["illusts"]
-                image = self._image_from_tag_matching(result, tags=tags, exclude_tags=exclude_tags)
+                image = self._image_from_tag_matching(
+                    result, tags=tags, exclude_tags=exclude_tags
+                )
                 if related:
                     # Strict search
                     related_image = None
