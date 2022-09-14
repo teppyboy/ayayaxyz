@@ -32,12 +32,33 @@ poetry run python -m ayayaxyz
 
 Currently there are 1 command available:
 
-+ `pixiv`
-  + `search`:
-    Search an image from the given keywords (seperated by ",")
-  + `id`:
-    Fetch an image from the given ID/url, and optionally only fetch specified pages (seperated by " ")
-  + `qsearch`:
-    A quick variant of `search`, provides result faster but worse resolution.
-  + `qid`:
-    A quick variant of `id`, provides result faster but worse resolution.
+### `pixiv`
+
+#### `search`
+
+Search an image from the given keywords which is seperated by ",".
+You can optionally use `-P`/`--popular` to get only popular-related image, and `-<keyword>` to blacklist a keyword from search result.
+> E.g: `/pixiv search Ayaka, Ayato, -Keqing`: This will search for image with "Ayaka", "Ayato" and *without* "Keqing" tag.
+
+#### `id`
+
+Fetch image(s) from the given ID/url, and optionally only fetch specified pages (seperated by " ")
+> E.g: `/pixiv id https://www.pixiv.net/en/artworks/99945929` or `/pixiv id 99945929`
+
+#### `related`
+
+Search a related image from the given ID/url, and optionally specify tags (following `search` rules) to check the related image against, which will improve the image search result.
+
+> E.g: `/pixiv related https://www.pixiv.net/en/artworks/99945929 Eula, -Keqing` or `/pixiv related 99945929`
+
+#### `qsearch`
+
+A quick variant of `search`, provides result faster but worse resolution.
+
+#### `qid`
+
+A quick variant of `id`, provides result faster but worse resolution.
+
+#### `qrelated`
+
+A quick variant of `related`, provides result faster but worse resolution.
