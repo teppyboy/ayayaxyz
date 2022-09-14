@@ -29,7 +29,7 @@ logging.basicConfig(
 
 app = Flask(__name__)
 pixiv = Pixiv()
-web_url = os.getenv("WEB_URL")
+web_url = os.getenv("WEB_URL", "http://127.0.0.1:8080")
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -290,11 +290,20 @@ async def pixiv_search_cmd(
     parser.add_argument("tags", type=str, nargs="*")
     parsed = parser.parse_args(keyword.split(","))
     tags = [x.strip() for x in parsed.tags]
+    sort = None
+    if "-P" in tags or "--popular" in tags:
+        print("popular mode")
+        try:
+            tags.remove("-P")
+        except ValueError:
+            tags.remove("--popular")
+        sort = "popular_desc"
 
     notice_msg = await helper.reply_status(
         message=message,
-        text="""Searching for <code>{keyword}</code>...{notice}""".format(
-            keyword=keyword,
+        text="""Searching for <code>{keyword}</code>{search_mode}...{notice}""".format(
+            keyword=", ".join(tags),
+            search_mode=" in popular mode" if sort == "popular_desc" else "",
             notice="\n<b>Note:</b> <code>qsearch</code> provides higher performance & stability in exchange for worse resolution"
             if not quick
             else "",
@@ -303,7 +312,7 @@ async def pixiv_search_cmd(
     )
 
     try:
-        illusts_search = await pixiv.search_illust(tags)
+        illusts_search = await pixiv.search_illust(tags, sort)
     except PixivSearchError as e:
         await helper.edit_error(
             message=notice_msg,
