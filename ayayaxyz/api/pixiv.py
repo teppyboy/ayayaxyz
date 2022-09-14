@@ -3,8 +3,6 @@ from pixivpy3 import *
 from pathlib import Path, PurePath
 from io import BytesIO
 from random import randint
-
-# from secrets import randbelow
 from threading import Thread
 from flask import send_file, Flask
 from appdirs import user_cache_dir
