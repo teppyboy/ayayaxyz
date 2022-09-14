@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 from urllib.parse import urlparse
 from pixivpy3 import *
 from pathlib import Path, PurePath
@@ -199,7 +200,11 @@ class Pixiv:
                     "Couldn't find any images matching provided keywords"
                 )
             while True:
-                image_count = randbelow(len(images) - 1)
+                print("images size", len(images))
+                try:
+                    image_count = randbelow(len(images) - 1)
+                except ValueError:
+                    image_count = randint(0, len(images) - 1)
                 if image_count not in searched_images:
                     break
             print("image index", image_count)
