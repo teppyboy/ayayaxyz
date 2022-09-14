@@ -205,6 +205,7 @@ class Pixiv:
                     image_count = randbelow(len(images) - 1)
                 except ValueError:
                     image_count = randint(0, len(images) - 1)
+                print("image count", image_count)
                 if image_count not in searched_images:
                     break
             print("image index", image_count)
