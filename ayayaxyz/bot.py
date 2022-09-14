@@ -193,7 +193,7 @@ async def pixiv_related_cmd(
         silent=True,
     )
     try:
-        illust = await pixiv.related_illust(illust_id, tags=tags)
+        illust = await pixiv.related_illust(illust_id, tags=tags, recurse=3)
     except PixivSearchError as e:
         await helper.edit_error(
             message=notice_msg,
