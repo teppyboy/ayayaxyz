@@ -174,6 +174,7 @@ async def pixiv_related_cmd(
     context: ContextTypes.DEFAULT_TYPE,
     quick: bool = False,
     tags: list[str] = None,
+    sort_popular=False,
 ):
     message = update.effective_message
     get_id = _pixiv_get_id(context=context)
@@ -218,7 +219,11 @@ async def pixiv_related_cmd(
 
     async def cb_next(_: Update, __: CallbackContext):
         if len(tags) == 0:
-            return await pixiv_related_cmd(update, context, quick=quick, tags=tags)
+            return await pixiv_related_cmd(
+                update, context, quick=quick, tags=tags, sort_popular=sort_popular
+            )
+        if sort_popular:
+            tags.append("-P")
         clone_context = copy(context)
         clone_context.args = ",".join(tags).split(" ")
         return await pixiv_search_cmd(update, clone_context, quick=quick)
@@ -226,7 +231,9 @@ async def pixiv_related_cmd(
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illust["id"])]
-        return await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
+        return await pixiv_related_cmd(
+            update, clone_context, quick=quick, tags=tags, sort_popular=sort_popular
+        )
 
     async def cb_getoriginalres(_: Update, __: CallbackContext):
         clone_context = copy(context)
@@ -290,6 +297,7 @@ async def pixiv_search_cmd(
 
     keyword = " ".join(context.args)
     tags = [x.strip() for x in keyword.split(",")]
+    sort_popular = False
     sort = None
     if "-P" in tags or "--popular" in tags:
         print("popular mode")
@@ -298,6 +306,7 @@ async def pixiv_search_cmd(
         except ValueError:
             tags.remove("--popular")
         sort = "popular_desc"
+        sort_popular = True
 
     notice_msg = await helper.reply_status(
         message=message,
@@ -342,7 +351,7 @@ async def pixiv_search_cmd(
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illusts_search["id"])]
-        return await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
+        return await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags, sort_popular=sort_popular)
 
     async def cb_getoriginalres(_: Update, __: CallbackContext):
         clone_context = copy(context)
