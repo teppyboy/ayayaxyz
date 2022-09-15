@@ -88,7 +88,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
     if not quick:
 
         async def cb_tryqid(_: Update, __: CallbackContext):
-            await pixiv_id_cmd(update, context, quick=True)
+            return await pixiv_id_cmd(update, context, quick=True)
 
         error_buttons = helper.buttons_build(
             [[("Try again with qid", cb_tryqid, "pixiv-id-tryqid-{id}")]],
@@ -217,17 +217,21 @@ async def pixiv_related_cmd(
     logging.info("Trying to send images bytes...")
 
     async def cb_next(_: Update, __: CallbackContext):
-        await pixiv_related_cmd(update, context, quick=quick, tags=tags)
+        if len(tags) == 0:
+            return await pixiv_related_cmd(update, context, quick=quick, tags=tags)
+        clone_context = copy(context)
+        clone_context.args = ",".join(tags).split(" ")
+        return await pixiv_search_cmd(update, clone_context, quick=quick)
 
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illust["id"])]
-        await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
+        return await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
 
     async def cb_getoriginalres(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illust["id"])]
-        await pixiv_id_cmd(update, clone_context)
+        return await pixiv_id_cmd(update, clone_context)
 
     buttons = helper.buttons_build(
         [
@@ -333,17 +337,17 @@ async def pixiv_search_cmd(
     logging.info("Generating callback for button...")
 
     async def cb_next(_: Update, __: CallbackContext):
-        await pixiv_search_cmd(update, context, quick=quick)
+        return await pixiv_search_cmd(update, context, quick=quick)
 
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illusts_search["id"])]
-        await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
+        return await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags)
 
     async def cb_getoriginalres(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illusts_search["id"])]
-        await pixiv_id_cmd(update, clone_context)
+        return await pixiv_id_cmd(update, clone_context)
 
     buttons = helper.buttons_build(
         [
