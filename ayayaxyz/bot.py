@@ -235,10 +235,10 @@ async def pixiv_related_cmd(
             update, clone_context, quick=quick, tags=tags, sort_popular=sort_popular
         )
 
-    async def cb_getoriginalres(_: Update, __: CallbackContext):
+    async def cb_getoriginalres(cb_update: Update, _: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illust["id"])]
-        return await pixiv_id_cmd(update, clone_context)
+        return await pixiv_id_cmd(cb_update, clone_context)
 
     buttons = helper.buttons_build(
         [
@@ -366,10 +366,10 @@ async def pixiv_search_cmd(
         clone_context.args = [str(illusts_search["id"])]
         return await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags, sort_popular=sort_popular)
 
-    async def cb_getoriginalres(_: Update, __: CallbackContext):
+    async def cb_getoriginalres(cb_update: Update, _: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illusts_search["id"])]
-        return await pixiv_id_cmd(update, clone_context)
+        return await pixiv_id_cmd(cb_update, clone_context)
 
     buttons = helper.buttons_build(
         [
