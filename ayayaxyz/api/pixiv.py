@@ -10,7 +10,6 @@ import logging
 import sys
 import time
 import asyncio
-import argparse
 
 
 class PixivException(Exception):
@@ -274,6 +273,8 @@ class Pixiv:
             )
         except PixivSearchError as e:
             raise PixivSearchRelatedError(e)
+        if image["id"] == illust_id:
+            raise PixivSearchRelatedError("Related image has the same ID as the original image.")
         if recurse == 0:
             return image
         return await self.related_illust(image["id"], tags, recurse - 1)
@@ -334,15 +335,15 @@ class Pixiv:
         return image
 
     async def search_download_illust(self, args: str, related=True):
-        parser = argparse.ArgumentParser()
-        parser.add_argument("tags", type=str, nargs="*")
-        parser.add_argument("-p", "--all-pages", action="store_true")
-        parsed = parser.parse_args(args.split(","))
-
+        tags = [x.strip() for x in args.split(",")]
         page_list = [0]
-        if parsed.all_pages:
+        if "-p" in tags or "--all-pages" in tags:
             page_list = []
-        tags = parsed.tags
+            try:
+                tags.remove("-p")
+            except ValueError:
+                tags.remove("--all-pages")
+
         image = self.search_illust(tags, related=related)
         return self.download_illust(image["id"], page_list)
 
