@@ -297,22 +297,35 @@ async def pixiv_search_cmd(
 
     keyword = " ".join(context.args)
     tags = [x.strip() for x in keyword.split(",")]
+    related = True
     sort_popular = False
     sort = None
-    if "-P" in tags or "--popular" in tags:
+    # Telegram workaround when you type -- in chat
+    if "-P" in tags or "--popular" in tags or "—popular" in tags:
         print("popular mode")
         try:
             tags.remove("-P")
         except ValueError:
-            tags.remove("--popular")
+            try:
+                tags.remove("--popular")
+            except ValueError:
+                tags.remove("—popular")
         sort = "popular_desc"
         sort_popular = True
+    if "--no-related" in tags or "—no-related" in tags:
+        print("Disabling related image search...")
+        try:
+            tags.remove("--no-related")
+        except ValueError:
+            tags.remove("—no-related")
+        related = False
 
     notice_msg = await helper.reply_status(
         message=message,
-        text="""Searching for <code>{keyword}</code>{search_mode}...{notice}""".format(
+        text="""Searching for <code>{keyword}</code>{popular_mode}{no_related}...{notice}""".format(
             keyword=", ".join(tags),
-            search_mode=" in popular mode" if sort == "popular_desc" else "",
+            popular_mode=" in popular mode" if sort == "popular_desc" else "",
+            no_related=" without searching related image" if not related else "",
             notice="\n<b>Note:</b> <code>qsearch</code> provides higher performance & stability in exchange for worse resolution"
             if not quick
             else "",
@@ -321,7 +334,7 @@ async def pixiv_search_cmd(
     )
 
     try:
-        illusts_search = await pixiv.search_illust(tags, sort=sort)
+        illusts_search = await pixiv.search_illust(tags, sort=sort, related=related)
     except PixivSearchError as e:
         await helper.edit_error(
             message=notice_msg,
