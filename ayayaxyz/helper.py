@@ -1,7 +1,7 @@
 from typing import Any
 from telegram import Message, InlineKeyboardButton
 from telegram.ext import Application, CallbackQueryHandler
-import secrets
+import uuid
 
 
 async def reply_status(message: Message, text: str, silent=False, **kwargs):
@@ -60,7 +60,7 @@ def button_build(button: tuple[str, Any, str, str], application: Application):
         type = "callback"
     if not type:
         type = "callback"
-    id = secrets.token_urlsafe(16)
+    id = uuid.uuid4()
     pattern = button[2].format(id=id)
     match type:
         case "callback":
