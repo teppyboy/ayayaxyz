@@ -37,8 +37,8 @@ Currently there are 1 command available:
 #### `search`
 
 Search an image from the given keywords which is seperated by ",".
-You can optionally use `-P`/`--popular` to get only popular-related image, and `-<keyword>` to blacklist a keyword from search result.
-> E.g: `/pixiv search Ayaka, Ayato, -Keqing`: This will search for image with "Ayaka", "Ayato" and *without* "Keqing" tag.
+You can optionally use `-P`/`--popular` to get only popular-related image, `--no-related` to not search for related image *(more duplicated images!)*, and `-<keyword>` to blacklist a keyword from search result.
+> E.g: `/pixiv search Ayaka, Ayato, -P, --no-related, -Keqing`: This will search for image with "Ayaka", "Ayato" *without* searching for related image and "Keqing" tag.
 
 #### `id`
 
