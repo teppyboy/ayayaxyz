@@ -187,8 +187,9 @@ async def pixiv_related_cmd(
         tags = [x.strip() for x in keyword.split(",")]
     notice_msg = await helper.reply_status(
         message=message,
-        text="""Searching for image related to <code>{illust_id}</code>...""".format(
-            illust_id=illust_id
+        text="""Searching for image related to <code>{illust_id}</code>{with_tags}...""".format(
+            illust_id=illust_id,
+            with_tags=" with tags <code>{}</code>".format(", ".join(tags)) if tags else ""
         ),
         silent=True,
     )
