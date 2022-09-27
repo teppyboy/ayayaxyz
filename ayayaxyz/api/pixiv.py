@@ -274,7 +274,9 @@ class Pixiv:
         except PixivSearchError as e:
             raise PixivSearchRelatedError(e)
         if image["id"] == illust_id:
-            raise PixivSearchRelatedError("Related image has the same ID as the original image.")
+            raise PixivSearchRelatedError(
+                "Related image has the same ID as the original image."
+            )
         if recurse == 0:
             return image
         return await self.related_illust(image["id"], tags, recurse - 1)
