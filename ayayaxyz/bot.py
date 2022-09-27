@@ -1,5 +1,6 @@
 import os
 import logging
+from re import search
 import ayayaxyz.helper as helper
 from copy import copy
 from telegram import Update, InputMediaPhoto, InlineKeyboardMarkup
@@ -189,7 +190,9 @@ async def pixiv_related_cmd(
         message=message,
         text="""Searching for image related to <code>{illust_id}</code>{with_tags}...""".format(
             illust_id=illust_id,
-            with_tags=" with tags <code>{}</code>".format(", ".join(tags)) if tags else ""
+            with_tags=" with tags <code>{}</code>".format(", ".join(tags))
+            if tags
+            else "",
         ),
         silent=True,
     )
@@ -217,17 +220,17 @@ async def pixiv_related_cmd(
         return
 
     logging.info("Trying to send images bytes...")
+    search_row = []
+    if tags:
 
-    async def cb_next(_: Update, __: CallbackContext):
-        if len(tags) == 0:
-            return await pixiv_related_cmd(
-                update, context, quick=quick, tags=tags, sort_popular=sort_popular
-            )
-        if sort_popular:
-            tags.append("-P")
-        clone_context = copy(context)
-        clone_context.args = ",".join(tags).split(" ")
-        return await pixiv_search_cmd(update, clone_context, quick=quick)
+        async def cb_next(_: Update, __: CallbackContext):
+            if sort_popular:
+                tags.append("-P")
+            clone_context = copy(context)
+            clone_context.args = ",".join(tags).split(" ")
+            return await pixiv_search_cmd(update, clone_context, quick=quick)
+
+        search_row.append(("Next", cb_next, "pixiv-search-cb-next-{id}"))
 
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
@@ -236,6 +239,8 @@ async def pixiv_related_cmd(
             update, clone_context, quick=quick, tags=tags, sort_popular=sort_popular
         )
 
+    search_row.append(("Related", cb_related, "pixiv-search-cb-related-{id}"))
+
     async def cb_getoriginalres(cb_update: Update, _: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illust["id"])]
@@ -243,10 +248,7 @@ async def pixiv_related_cmd(
 
     buttons = helper.buttons_build(
         [
-            [
-                ("Next", cb_next, "pixiv-search-cb-next-{id}"),
-                ("Related", cb_related, "pixiv-search-cb-related-{id}"),
-            ],
+            search_row,
             [
                 (
                     "Hi-res & All pages",
@@ -365,7 +367,9 @@ async def pixiv_search_cmd(
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illusts_search["id"])]
-        return await pixiv_related_cmd(update, clone_context, quick=quick, tags=tags, sort_popular=sort_popular)
+        return await pixiv_related_cmd(
+            update, clone_context, quick=quick, tags=tags, sort_popular=sort_popular
+        )
 
     async def cb_getoriginalres(cb_update: Update, _: CallbackContext):
         clone_context = copy(context)
