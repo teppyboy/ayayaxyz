@@ -60,7 +60,7 @@ def button_build(button: tuple[str, Any, str, str], application: Application):
         type = "callback"
     if not type:
         type = "callback"
-    id = uuid.uuid4()
+    id = str(uuid.uuid4())
     pattern = button[2].format(id=id)
     match type:
         case "callback":
