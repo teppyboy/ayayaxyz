@@ -80,7 +80,7 @@ def button_build(button: tuple[str, Any, str, str], application: Application):
                 url=pattern,
             )
         case _:
-            raise RuntimeError("Unknown type")
+            raise ValueError("Unknown type")
     return button
 
 
