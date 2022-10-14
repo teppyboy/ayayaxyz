@@ -1,3 +1,4 @@
+from io import BytesIO
 import os
 import logging
 from re import search
@@ -36,34 +37,24 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Hi!")
 
 
-async def pixiv_fix_cmd(update: Update):
-    message = update.effective_message
-    notice_msg = await helper.reply_status(
-        message, "Reloading current Pixiv instance...", True
-    )
-    try:
-        init_pixiv()
-    except PixivLoginError as e:
-        await helper.edit_error(notice_msg, "Failed to restart Pixiv: {}".format(e))
-        return
-    await helper.edit_status(notice_msg, "Pixiv restarted successfully")
-
-
 def _pixiv_get_id(context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) == 0:
-        return (False, "You need to provide either an illustration ID or its url.")
+        return False, "You need to provide either an illustration ID or its url."
     if "https://www.pixiv.net/" in context.args[0] and "/artworks/" in context.args[0]:
         illust_id = int(context.args[0].split("/")[-1])
     else:
         try:
             illust_id = int(context.args[0])
         except ValueError:
-            return (False, "Invalid provided illustration ID.")
-    return (True, illust_id)
+            return False, "Invalid provided illustration ID."
+    return True, illust_id
 
 
 async def pixiv_id_cmd(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, quick: bool = False
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    quick: bool = False,
+    full_resolution: bool = False,
 ):
     message = update.effective_message
     get_id = _pixiv_get_id(context=context)
@@ -102,10 +93,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
     illust = await pixiv.get_illust_from_id(illust_id)
     try:
         illusts = await pixiv.download_illust(
-            illust,
-            pictures,
-            quality=quality,
-            limit=9,
+            illust, pictures, quality=quality, limit=9, to_url=full_resolution
         )
     except PixivDownloadError as e:
         msg_kwargs = {
@@ -149,11 +137,30 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=dl_button),
             )
         else:
+            media = []
+            for x in illusts:
+                if isinstance(x[0], BytesIO):
+                    media.append(
+                        InputMediaPhoto(
+                            media=x[0].getvalue(), caption=caption, filename=x[1]
+                        )
+                    )
+                elif isinstance(x[0], str):
+                    print(x[0])
+                    media_url = "{web}/pixiv/{url}".format(
+                        web=web_url,
+                        url=x[0],
+                    )
+                    print(media_url)
+                    media.append(
+                        InputMediaPhoto(
+                            media=media_url,
+                            caption=caption,
+                            filename=x[1],
+                        )
+                    )
             msgs = await message.reply_media_group(
-                media=[
-                    InputMediaPhoto(media=x[0].getvalue(), filename=x[1])
-                    for x in illusts
-                ],
+                media=media,
             )
             await helper.reply_html(msgs[-1], text=caption)
         await notice_msg.delete()
@@ -426,28 +433,30 @@ async def pixiv_search_cmd(
 
 
 async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.effective_message
     try:
         command = context.args[0].lower()
         context.args = context.args[1:]
     except (ValueError, KeyError):
-        await helper.reply_error(text="Please specify a sub-command.")
-    match command:
-        case "id":
-            await pixiv_id_cmd(update, context)
-        case "qid":
-            await pixiv_id_cmd(update, context, quick=True)
-        case "search":
-            await pixiv_search_cmd(update, context)
-        case "qsearch":
-            await pixiv_search_cmd(update, context, quick=True)
-        case "related":
-            await pixiv_related_cmd(update, context)
-        case "qrelated":
-            await pixiv_related_cmd(update, context, quick=True)
-        case "fix":
-            await pixiv_fix_cmd(update)
-        case _:
-            await helper.reply_error(text="Invalid command.")
+        await helper.reply_error(message=message, text="Please specify a sub-command.")
+    else:
+        match command:
+            case "id":
+                await pixiv_id_cmd(update, context)
+            case "qid":
+                await pixiv_id_cmd(update, context, quick=True)
+            case "fid":
+                await pixiv_id_cmd(update, context, full_resolution=True)
+            case "search":
+                await pixiv_search_cmd(update, context)
+            case "qsearch":
+                await pixiv_search_cmd(update, context, quick=True)
+            case "related":
+                await pixiv_related_cmd(update, context)
+            case "qrelated":
+                await pixiv_related_cmd(update, context, quick=True)
+            case _:
+                await helper.reply_error(message=message, text="Invalid command.")
 
 
 def init_pixiv(application: Application) -> bool:

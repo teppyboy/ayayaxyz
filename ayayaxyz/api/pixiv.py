@@ -136,7 +136,12 @@ class Pixiv:
         return [illust_dl]
 
     async def download_illust(
-        self, illust, pictures: list[int] = None, quality="original", limit: int = None
+        self,
+        illust,
+        pictures: list[int] = None,
+        quality="original",
+        limit: int = None,
+        to_url: bool = False,
     ):
         if limit is not None and pictures is not None and len(pictures) > limit:
             raise PixivDownloadError(
@@ -157,23 +162,32 @@ class Pixiv:
             images_job = []
             for index, page in enumerate(illust["meta_pages"]):
                 if pictures == [] or index in pictures:
-                    images_job.append(
-                        self._download_illust(page["image_urls"][quality])
-                    )
-            try:
-                images = await asyncio.gather(*images_job)
-            except PixivError as e:
-                raise PixivDownloadError(e)
+                    if to_url:
+                        images_job.append((page["image_urls"][quality], PurePath(page["image_urls"][quality]).name))
+                    else:
+                        images_job.append(
+                            self._download_illust(page["image_urls"][quality])
+                        )
+            if to_url:
+                images = images_job
+            else:
+                try:
+                    images = await asyncio.gather(*images_job)
+                except PixivError as e:
+                    raise PixivDownloadError(e)
             return images
         print("Single page illustration.")
         if quality == "original":
             illust_dl = illust["meta_single_page"]["original_image_url"]
         else:
             illust_dl = illust["image_urls"][quality]
-        try:
-            images = [await self._download_illust(illust_dl)]
-        except PixivError as e:
-            raise PixivDownloadError(e)
+        if to_url:
+            images = [(illust_dl, PurePath(illust_dl).name)]
+        else:
+            try:
+                images = [await self._download_illust(illust_dl)]
+            except PixivError as e:
+                raise PixivDownloadError(e)
         return images
 
     def _get_raw_tags(self, image):

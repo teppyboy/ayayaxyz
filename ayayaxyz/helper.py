@@ -1,7 +1,8 @@
+import uuid
 from typing import Any
+
 from telegram import Message, InlineKeyboardButton
 from telegram.ext import Application, CallbackQueryHandler
-import uuid
 
 
 async def reply_status(message: Message, text: str, silent=False, **kwargs):
