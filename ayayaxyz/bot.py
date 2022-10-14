@@ -26,7 +26,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-
 app = Flask(__name__)
 pixiv = Pixiv()
 web_url = os.getenv("WEB_URL", "http://127.0.0.1:8080")
@@ -50,10 +49,10 @@ def _pixiv_get_id(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def pixiv_id_cmd(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    quick: bool = False,
-    full_resolution: bool = False,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        quick: bool = False,
+        full_resolution: bool = False,
 ):
     message = update.effective_message
     get_id = _pixiv_get_id(context=context)
@@ -77,7 +76,6 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         silent=True,
     )
     if not quick:
-
         async def cb_tryqid(_: Update, __: CallbackContext):
             return await pixiv_id_cmd(update, context, quick=True)
 
@@ -177,11 +175,11 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
 
 
 async def pixiv_related_cmd(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    quick: bool = False,
-    tags: list[str] = None,
-    sort_popular=False,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        quick: bool = False,
+        tags: list[str] = None,
+        sort_popular=False,
 ):
     message = update.effective_message
     get_id = _pixiv_get_id(context=context)
@@ -297,7 +295,7 @@ async def pixiv_related_cmd(
 
 
 async def pixiv_search_cmd(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, quick: bool = False
+        update: Update, context: ContextTypes.DEFAULT_TYPE, quick: bool = False
 ):
     message = update.effective_message
     if len(context.args) == 0:
