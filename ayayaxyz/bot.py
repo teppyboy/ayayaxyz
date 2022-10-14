@@ -1,7 +1,6 @@
 from io import BytesIO
 import os
 import logging
-from re import search
 import ayayaxyz.helper as helper
 from copy import copy
 from telegram import Update, InputMediaPhoto, InlineKeyboardMarkup
