@@ -231,15 +231,17 @@ class Pixiv:
             searched_images.append(image_count)
             current_image = images[image_count]
             print(self._get_raw_tags(current_image))
-            r18 = "R-18" in self._get_raw_tags(current_image)
-            if r18 and "r-18" not in tags:
-                print("Not a r-18 image but we wanted r-18")
-                continue
-            elif not r18 and "r-18" in tags:
+            r18_image = "R-18" in self._get_raw_tags(current_image)
+            if r18_image and "r-18" not in tags:
                 print("A r-18 image but we don't want r-18")
+                continue
+            elif not r18_image and "r-18" in tags:
+                print("Not a r-18 image but we wanted r-18")
                 continue
             print("beginning tag partial matching")
             found_tags = set()
+            # Found tags for joined words.
+            found_tags_jw = set()
             for tag in current_image["tags"]:
                 if exclude_tags:
                     for kw in exclude_tags:
@@ -252,16 +254,37 @@ class Pixiv:
                             break
                         if kw_set.issubset(tag["name"].lower().split(" ")):
                             break
+                # Keyword in out specified tags
                 for kw in tags:
-                    kw_set = set(kw.split(" "))
+                    # Normal search
+                    kw_list = kw.split(" ")
+                    kw_set = set(kw_list)
                     if tag["translated_name"] is not None and kw_set.issubset(
                             tag["translated_name"].lower().split(" ")
                     ):
                         found_tags.add(kw)
+                        continue
                     if kw_set.issubset(tag["name"].lower().split(" ")):
                         found_tags.add(kw)
+                        continue
+
+                    # Conjoined words
+                    kw_joined = "".join(kw_list)
+                    kw_check_list = [kw_joined]
+                    if len(kw_list) == 2:
+                        kw_list[0], kw_list[1] = kw_list[1], kw_list[0]
+                        kw_joined_swap = "".join(kw_list)
+                        kw_check_list.append(kw_joined_swap)
+                    if tag["name"].lower() in kw_check_list:
+                        found_tags_jw.add(kw)
+                        continue
+                    if tag["translated_name"] is not None and tag["translated_name"].lower() in kw_check_list:
+                        found_tags_jw.add(kw)
+                        continue
+
+            found_tags.update(found_tags_jw)
             print("final tags", found_tags, tags)
-            if set(tags) == found_tags:
+            if tags == found_tags:
                 image = current_image
         print("found image we maybe looking for")
         return image
