@@ -1,15 +1,16 @@
-from urllib.parse import urlparse
-from pixivpy3 import *
-from pathlib import Path, PurePath
-from io import BytesIO
-from random import randint
-from threading import Thread
-from flask import send_file, Flask
-from appdirs import user_cache_dir
+import asyncio
 import logging
 import sys
 import time
-import asyncio
+from io import BytesIO
+from pathlib import Path, PurePath
+from random import randint
+from threading import Thread
+from urllib.parse import urlparse
+
+from appdirs import user_cache_dir
+from flask import send_file, Flask
+from pixivpy3 import *
 
 
 class PixivException(Exception):
@@ -104,7 +105,7 @@ class Pixiv:
         await asyncio.to_thread(
             self._pixiv.download, url, path=str(path), fname=image_bytes
         )
-        return (image_bytes, image_name)
+        return image_bytes, image_name
 
     async def get_illust_from_id(self, illust_id: int):
         try:
@@ -117,8 +118,9 @@ class Pixiv:
             )
         return illust
 
+    @staticmethod
     async def get_illust_download_url(
-        self, illust, pictures: list[int] = None, quality="original"
+            illust, pictures: list[int] = None, quality="original"
     ):
         print("Fetching {}".format(illust["id"]))
         if illust["meta_single_page"] == {}:
@@ -136,12 +138,12 @@ class Pixiv:
         return [illust_dl]
 
     async def download_illust(
-        self,
-        illust,
-        pictures: list[int] = None,
-        quality="original",
-        limit: int = None,
-        to_url: bool = False,
+            self,
+            illust,
+            pictures: list[int] = None,
+            quality="original",
+            limit: int = None,
+            to_url: bool = False,
     ):
         if limit is not None and pictures is not None and len(pictures) > limit:
             raise PixivDownloadError(
@@ -190,17 +192,18 @@ class Pixiv:
                 raise PixivDownloadError(e)
         return images
 
-    def _get_raw_tags(self, image):
+    @staticmethod
+    def _get_raw_tags(image):
         tags = []
         for tag in image["tags"]:
             tags.append(tag["name"])
         return tags
 
     def _image_from_tag_matching(
-        self,
-        images,
-        tags: list[str] | set[str] = None,
-        exclude_tags: list[str] | set[str] = None,
+            self,
+            images,
+            tags: list[str] | set[str] = None,
+            exclude_tags: list[str] | set[str] = None,
     ):
         print("Using hacky algorithm...")
         if tags is None:
@@ -228,8 +231,12 @@ class Pixiv:
             searched_images.append(image_count)
             current_image = images[image_count]
             print(self._get_raw_tags(current_image))
-            if not "r-18" in tags and "R-18" in self._get_raw_tags(current_image):
-                print("not checking since we disabled r18 and this is r18 image")
+            r18 = "R-18" in self._get_raw_tags(current_image)
+            if r18 and "r-18" not in tags:
+                print("Not a r-18 image but we wanted r-18")
+                continue
+            elif not r18 and "r-18" in tags:
+                print("A r-18 image but we don't want r-18")
                 continue
             print("beginning tag partial matching")
             found_tags = set()
@@ -240,17 +247,15 @@ class Pixiv:
                         print("parsing tag:", tag["name"], tag["translated_name"])
                         print("current blacklist tag:", kw_set)
                         if tag["translated_name"] is not None and kw_set.issubset(
-                            tag["translated_name"].lower().split(" ")
+                                tag["translated_name"].lower().split(" ")
                         ):
                             break
                         if kw_set.issubset(tag["name"].lower().split(" ")):
                             break
                 for kw in tags:
                     kw_set = set(kw.split(" "))
-                    # print("parsing tag:", tag["name"], tag["translated_name"])
-                    # print("current tag:", kw_set)
                     if tag["translated_name"] is not None and kw_set.issubset(
-                        tag["translated_name"].lower().split(" ")
+                            tag["translated_name"].lower().split(" ")
                     ):
                         found_tags.add(kw)
                     if kw_set.issubset(tag["name"].lower().split(" ")):
@@ -262,7 +267,7 @@ class Pixiv:
         return image
 
     async def related_illust(
-        self, illust_id: int, tags: list[str] | set[str] = None, recurse: int = None
+            self, illust_id: int, tags: list[str] | set[str] = None, recurse: int = None
     ):
         if recurse is None:
             recurse = 0
@@ -296,7 +301,7 @@ class Pixiv:
         return await self.related_illust(image["id"], tags, recurse - 1)
 
     async def search_illust(
-        self, tags: list[str] | set[str], related=True, sort=None, max_attempt=None
+            self, tags: list[str] | set[str], related=True, sort=None, max_attempt=None
     ):
         if tags is None:
             raise PixivSearchError("No tags specified.")

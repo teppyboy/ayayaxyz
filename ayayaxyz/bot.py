@@ -61,7 +61,7 @@ async def pixiv_id_cmd(
         await helper.reply_error(message=message, text=get_id[1])
         return
     illust_id = get_id[1]
-
+    error_buttons = None
     notice_msg = await helper.reply_status(
         message=message,
         text="""Selected page(s): <code>{selected_images}</code>
