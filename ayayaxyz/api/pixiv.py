@@ -88,7 +88,9 @@ class Pixiv:
             if "gppt" not in sys.modules:
                 from gppt import GetPixivToken
 
-            login_rsp = GetPixivToken().login(headless=True, user=username, pass_=password)
+            login_rsp = GetPixivToken().login(
+                headless=True, user=username, pass_=password
+            )
         except Exception as e:
             raise PixivLoginError(e)
         self.login_token(refresh_token=login_rsp.get("refresh_token"))
@@ -119,7 +121,7 @@ class Pixiv:
 
     @staticmethod
     async def get_illust_download_url(
-            illust, pictures: list[int] = None, quality="original"
+        illust, pictures: list[int] = None, quality="original"
     ):
         print("Fetching {}".format(illust["id"]))
         if illust["meta_single_page"] == {}:
@@ -137,12 +139,12 @@ class Pixiv:
         return [illust_dl]
 
     async def download_illust(
-            self,
-            illust,
-            pictures: list[int] = None,
-            quality="original",
-            limit: int = None,
-            to_url: bool = False,
+        self,
+        illust,
+        pictures: list[int] = None,
+        quality="original",
+        limit: int = None,
+        to_url: bool = False,
     ):
         if limit is not None and pictures is not None and len(pictures) > limit:
             raise PixivDownloadError(
@@ -164,7 +166,12 @@ class Pixiv:
             for index, page in enumerate(illust["meta_pages"]):
                 if pictures == [] or index in pictures:
                     if to_url:
-                        images_job.append((page["image_urls"][quality], PurePath(page["image_urls"][quality]).name))
+                        images_job.append(
+                            (
+                                page["image_urls"][quality],
+                                PurePath(page["image_urls"][quality]).name,
+                            )
+                        )
                     else:
                         images_job.append(
                             self._download_illust(page["image_urls"][quality])
@@ -199,10 +206,10 @@ class Pixiv:
         return tags
 
     def _image_from_tag_matching(
-            self,
-            images,
-            tags: list[str] | set[str] = None,
-            exclude_tags: list[str] | set[str] = None,
+        self,
+        images,
+        tags: list[str] | set[str] = None,
+        exclude_tags: list[str] | set[str] = None,
     ):
         print("Using hacky algorithm...")
         if tags is None:
@@ -248,7 +255,7 @@ class Pixiv:
                         print("parsing tag:", tag["name"], tag["translated_name"])
                         print("current blacklist tag:", kw_set)
                         if tag["translated_name"] is not None and kw_set.issubset(
-                                tag["translated_name"].lower().split(" ")
+                            tag["translated_name"].lower().split(" ")
                         ):
                             break
                         if kw_set.issubset(tag["name"].lower().split(" ")):
@@ -259,7 +266,7 @@ class Pixiv:
                     kw_list = kw.split(" ")
                     kw_set = set(kw_list)
                     if tag["translated_name"] is not None and kw_set.issubset(
-                            tag["translated_name"].lower().split(" ")
+                        tag["translated_name"].lower().split(" ")
                     ):
                         found_tags.add(kw)
                         continue
@@ -277,7 +284,10 @@ class Pixiv:
                     if tag["name"].lower() in kw_check_list:
                         found_tags_jw.add(kw)
                         continue
-                    if tag["translated_name"] is not None and tag["translated_name"].lower() in kw_check_list:
+                    if (
+                        tag["translated_name"] is not None
+                        and tag["translated_name"].lower() in kw_check_list
+                    ):
                         found_tags_jw.add(kw)
                         continue
 
@@ -289,7 +299,7 @@ class Pixiv:
         return image
 
     async def related_illust(
-            self, illust_id: int, tags: list[str] | set[str] = None, recurse: int = None
+        self, illust_id: int, tags: list[str] | set[str] = None, recurse: int = None
     ):
         if recurse is None:
             recurse = 0
@@ -322,11 +332,14 @@ class Pixiv:
             return image
         return await self.related_illust(image["id"], tags, recurse - 1)
 
-    async def search_illust(
-            self, tags: list[str] | set[str], related=True, sort=None, max_attempt=None
+    async def _search_illust(
+        self,
+        tags: list[str] | set[str],
+        related,
+        sort,
+        max_attempt,
+        max_related_attempt,
     ):
-        if tags is None:
-            raise PixivSearchError("No tags specified.")
         tags_orig = tags
         exclude_tags = set(x for x in tags if x.startswith("-"))
         tags = set(tags) - exclude_tags
@@ -334,8 +347,6 @@ class Pixiv:
         # if "R-18" not in tags and "r-18" not in tags:
         #     # Be safe here, no NSFW ;)
         #     filter = "for_ios"
-        if max_attempt is None:
-            max_attempt = 5
         attempt = 0
         image = None
         while image is None and attempt < max_attempt:
@@ -359,7 +370,9 @@ class Pixiv:
                     # Strict search
                     related_image = None
                     related_attempt = 0
-                    while related_image is None and related_attempt < 5:
+                    while (
+                        related_image is None and related_attempt < max_related_attempt
+                    ):
                         try:
                             related_image = await self.related_illust(
                                 image["id"], tags=tags_orig
@@ -377,6 +390,55 @@ class Pixiv:
             raise PixivSearchError("No images matches specified tags")
         return image
 
+    @staticmethod
+    def translate_tags(image, tags):
+        tags = set(x.lower() for x in tags)
+        tl_tags = {}
+        for tag in image["tags"]:
+            for i, v in enumerate(tags):
+                kw_set = set(v.split(" "))
+                if tag["translated_name"] is not None and kw_set.issubset(
+                    tag["translated_name"].lower().split(" ")
+                ):
+                    tl_tags[i] = tag["name"]
+        return tl_tags
+
+    async def search_illust(
+        self,
+        tags: list[str] | set[str],
+        related=True,
+        sort=None,
+        max_attempt=None,
+        max_related_attempt=None,
+        translate_tags=True,
+    ):
+        if tags is None:
+            raise PixivSearchError("No tags specified.")
+        max_attempt = 5 if not max_attempt else max_attempt
+        max_related_attempt = 5 if not max_related_attempt else max_related_attempt
+        if translate_tags:
+            print("translating tags...")
+            img = await self._search_illust(
+                tags=tags,
+                related=True,
+                sort="popular_desc",
+                max_attempt=1,
+                max_related_attempt=1,
+            )
+            tl_tags = self.translate_tags(img, tags)
+            print(tl_tags)
+            for k, v in tl_tags.items():
+                tags[k] = v
+            print("after translate")
+            print(tags)
+        return await self._search_illust(
+            tags=tags,
+            related=related,
+            sort=sort,
+            max_attempt=max_attempt,
+            max_related_attempt=max_related_attempt,
+        )
+
     async def search_download_illust(self, args: str, related=True):
         tags = [x.strip() for x in args.split(",")]
         page_list = [0]
@@ -387,7 +449,7 @@ class Pixiv:
             except ValueError:
                 tags.remove("--all-pages")
 
-        image = self.search_illust(tags, related=related)
+        image = await self.search_illust(tags, related=related)
         return self.download_illust(image["id"], page_list)
 
     async def download_illust_to_cache(self, illust_url: str):
