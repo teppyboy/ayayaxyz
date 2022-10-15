@@ -53,12 +53,13 @@ class Pixiv:
     def __init__(self):
         self._pixiv = AppPixivAPI()
         self._path = Path("./pixiv")
+        self._logger = logging.getLogger("ayayaxyz.api.pixiv")
         if not self._path.is_dir():
             self._path = Path(
                 user_cache_dir("ayayaxyz-telegram", "tretrauit")
             ).joinpath("pixiv-api")
             self._path.mkdir(parents=True, exist_ok=True)
-        logging.info("Pixiv API cache path: {}".format(self._path))
+        self._logger.info("Pixiv API cache path: {}".format(self._path))
         # Tag translation
         self._pixiv.set_accept_language("en-us")
         # Login workaround
@@ -391,17 +392,31 @@ class Pixiv:
         return image
 
     @staticmethod
-    def translate_tags(image, tags):
-        tags = set(x.lower() for x in tags)
-        tl_tags = {}
+    def _translate_tags(image, tags) -> list[str]:
+        print("Begin tag translation.")
+        tags = [x if x == "R-18" else x.lower() for x in tags]
         for tag in image["tags"]:
             for i, v in enumerate(tags):
                 kw_set = set(v.split(" "))
                 if tag["translated_name"] is not None and kw_set.issubset(
                     tag["translated_name"].lower().split(" ")
                 ):
-                    tl_tags[i] = tag["name"]
-        return tl_tags
+                    print(tag, i, kw_set)
+                    tags[i] = tag["name"]
+        print("final translated tags", tags)
+        return tags
+
+    async def translate_tags(self, tags: list[str]) -> list[str]:
+        return self._translate_tags(
+            image=await self._search_illust(
+                tags=tags,
+                related=True,
+                sort="popular_desc",
+                max_attempt=1,
+                max_related_attempt=1,
+            ),
+            tags=tags,
+        )
 
     async def search_illust(
         self,
@@ -410,27 +425,11 @@ class Pixiv:
         sort=None,
         max_attempt=None,
         max_related_attempt=None,
-        translate_tags=True,
     ):
         if tags is None:
             raise PixivSearchError("No tags specified.")
         max_attempt = 5 if not max_attempt else max_attempt
         max_related_attempt = 5 if not max_related_attempt else max_related_attempt
-        if translate_tags:
-            print("translating tags...")
-            img = await self._search_illust(
-                tags=tags,
-                related=True,
-                sort="popular_desc",
-                max_attempt=1,
-                max_related_attempt=1,
-            )
-            tl_tags = self.translate_tags(img, tags)
-            print(tl_tags)
-            for k, v in tl_tags.items():
-                tags[k - 1] = v
-            print("after translate")
-            print(tags)
         return await self._search_illust(
             tags=tags,
             related=related,
@@ -463,7 +462,7 @@ class Pixiv:
         if not route:
             route = "/pixiv"
 
-        logger = logging.getLogger("pixiv-flask-api")
+        logger = self._logger.getChild("flask-api")
         logger.info("Initializing pixiv Flask route...")
 
         @app.route(route + "/<path:url>", methods=["GET"])
