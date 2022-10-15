@@ -428,7 +428,7 @@ class Pixiv:
             tl_tags = self.translate_tags(img, tags)
             print(tl_tags)
             for k, v in tl_tags.items():
-                tags[k] = v
+                tags[k - 1] = v
             print("after translate")
             print(tags)
         return await self._search_illust(
