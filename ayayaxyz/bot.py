@@ -386,18 +386,25 @@ async def pixiv_search_cmd(
         )
         tags = await pixiv.translate_tags(tags=tags)
 
-    notice_msg = await helper.edit_status(
-        message=message if notice_msg is None else notice_msg,
-        text="""Searching for <code>{keyword}</code>{popular_mode}{no_related}...{notice}""".format(
-            keyword=", ".join(tags),
-            popular_mode=" in popular mode" if sort == "popular_desc" else "",
-            no_related=" without searching related image" if not related else "",
-            notice="\n<b>Note:</b> \
-            <code>qsearch</code> provides higher performance & stability in exchange for worse resolution"
-            if not quick
-            else "",
-        ),
+    search_txt = "Searching for <code>{keyword}</code>{popular_mode}{no_related}...{notice}".format(
+        keyword=", ".join(tags),
+        popular_mode=" in popular mode" if sort == "popular_desc" else "",
+        no_related=" without searching related image" if not related else "",
+        notice="\n<b>Note:</b> \
+        <code>qsearch</code> provides higher performance & stability in exchange for worse resolution"
+        if not quick
+        else "",
     )
+    if not notice_msg:
+        notice_msg = await helper.reply_status(
+            message=message,
+            text=search_txt,
+        )
+    else:
+        await helper.edit_status(
+            message=notice_msg,
+            text=search_txt,
+        )
 
     try:
         illusts_search = await pixiv.search_illust(tags, sort=sort, related=related)
