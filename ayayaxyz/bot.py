@@ -221,7 +221,10 @@ async def pixiv_related_cmd(
             else:
                 translate_tags = True
         if translate_tags:
-            tags = await pixiv.translate_tags(tags=tags)
+            try:
+                tags = await pixiv.translate_tags(tags=tags)
+            except PixivSearchError:
+                pass
     try:
         illust = await pixiv.related_illust(illust_id, tags=tags, recurse=3)
     except PixivSearchError as e:
@@ -384,7 +387,10 @@ async def pixiv_search_cmd(
             ),
             silent=True,
         )
-        tags = await pixiv.translate_tags(tags=tags)
+        try:
+            tags = await pixiv.translate_tags(tags=tags)
+        except PixivSearchError:
+            pass
 
     search_txt = "Searching for <code>{keyword}</code>{popular_mode}{no_related}...{notice}".format(
         keyword=", ".join(tags),
