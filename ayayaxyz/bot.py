@@ -22,9 +22,8 @@ from flask import Flask
 from waitress import serve
 from threading import Thread
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("ayayaxyz")
 
 app = Flask(__name__)
 pixiv = Pixiv()
@@ -84,7 +83,10 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
             [[("Try again with qid", cb_tryqid, "pixiv-id-tryqid-{id}")]],
             application=context.application,
         )
-    pictures = [int(x) - 1 for x in context.args[1:]]
+    try:
+        pictures = [int(x) - 1 for x in context.args[1:]]
+    except ValueError:
+        await helper.edit_error(message=notice_msg, text="Pages list must be integers")
     quality = "original"
     if quick:
         quality = "large"
@@ -104,7 +106,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
             )
         await helper.edit_error(**msg_kwargs)
         return
-    logging.info("Trying to send images bytes...")
+    logger.debug("Trying to send images bytes...")
     caption = "https://www.pixiv.net/en/artworks/{illust_id}".format(
         illust_id=illust_id
     )
@@ -144,12 +146,12 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                         )
                     )
                 elif isinstance(x[0], str):
-                    print(x[0])
+                    logger.debug(x[0])
                     media_url = "{web}/pixiv/{url}".format(
                         web=web_url,
                         url=x[0],
                     )
-                    print(media_url)
+                    logger.debug(media_url)
                     media.append(
                         InputMediaPhoto(
                             media=media_url,
@@ -172,7 +174,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                 {"reply_markup": InlineKeyboardMarkup(inline_keyboard=error_buttons)}
             )
         await helper.edit_error(**msg_kwargs)
-        logging.warning("Error while sending message: {}".format(e))
+        logger.warning("Error while sending message: {}".format(e))
 
 
 async def pixiv_related_cmd(
@@ -180,7 +182,9 @@ async def pixiv_related_cmd(
     context: ContextTypes.DEFAULT_TYPE,
     quick: bool = False,
     tags: list[str] = None,
-    sort_popular=False,
+    sort_popular: bool = False,
+    no_related: bool = False,
+    translate_tags: bool = True,
 ):
     message = update.effective_message
     get_id = _pixiv_get_id(context=context)
@@ -201,6 +205,23 @@ async def pixiv_related_cmd(
         ),
         silent=True,
     )
+    if tags:
+        if not translate_tags:
+            _tl_args = {
+                "--no-tl",
+                "—no-tl",
+                "--no-translate-tags",
+                "—no-translate-tags",
+            }.intersection(set(tags))
+            if _tl_args:
+                logger.debug("Tag translation disabled.")
+                for arg in _tl_args:
+                    tags.remove(arg)
+                translate_tags = False
+            else:
+                translate_tags = True
+        if translate_tags:
+            tags = await pixiv.translate_tags(tags=tags)
     try:
         illust = await pixiv.related_illust(illust_id, tags=tags, recurse=3)
     except PixivSearchError as e:
@@ -208,7 +229,7 @@ async def pixiv_related_cmd(
             message=notice_msg,
             text="Failed to search for related image: <code>{}</code>".format(e),
         )
-        logging.warning("Error while searching for related image: {}".format(e))
+        logger.warning("Error while searching for related image: {}".format(e))
         return
 
     quality = "original"
@@ -221,19 +242,23 @@ async def pixiv_related_cmd(
             message=notice_msg,
             text="Failed to fetch illustration: <code>{}</code>".format(e),
         )
-        logging.warning("Error while downloading images: {}".format(e))
+        logger.warning("Error while downloading images: {}".format(e))
         return
 
-    logging.info("Trying to send images bytes...")
+    logger.debug("Trying to send images bytes...")
     search_row = []
     if tags:
 
         async def cb_next(_: Update, __: CallbackContext):
             if sort_popular:
                 tags.append("-P")
+            if no_related:
+                tags.append("--no-related")
             clone_context = copy(context)
             clone_context.args = ",".join(tags).split(" ")
-            return await pixiv_search_cmd(update, clone_context, quick=quick)
+            return await pixiv_search_cmd(
+                update, clone_context, quick=quick, translate_tags=translate_tags
+            )
 
         search_row.append(("Next", cb_next, "pixiv-search-cb-next-{id}"))
 
@@ -241,7 +266,13 @@ async def pixiv_related_cmd(
         clone_context = copy(context)
         clone_context.args = [str(illust["id"])]
         return await pixiv_related_cmd(
-            update, clone_context, quick=quick, tags=tags, sort_popular=sort_popular
+            update,
+            clone_context,
+            quick=quick,
+            tags=tags,
+            sort_popular=sort_popular,
+            no_related=no_related,
+            translate_tags=translate_tags,
         )
 
     search_row.append(("Related", cb_related, "pixiv-search-cb-related-{id}"))
@@ -292,11 +323,14 @@ async def pixiv_related_cmd(
         await helper.edit_error(
             message=notice_msg, text="Failed to send images: <code>{}</code>".format(e)
         )
-        logging.warning("Error while sending message: {}".format(e))
+        logger.warning("Error while sending message: {}".format(e))
 
 
 async def pixiv_search_cmd(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, quick: bool = False
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    quick: bool = False,
+    translate_tags: bool = None,
 ):
     message = update.effective_message
     if len(context.args) == 0:
@@ -308,37 +342,61 @@ async def pixiv_search_cmd(
     related = True
     sort_popular = False
     sort = None
+    quality = "original"
+    notice_msg = None
     # Telegram workaround when you type -- in chat
-    if "-P" in tags or "--popular" in tags or "—popular" in tags:
-        print("popular mode")
-        try:
-            tags.remove("-P")
-        except ValueError:
-            try:
-                tags.remove("--popular")
-            except ValueError:
-                tags.remove("—popular")
+    _p_tags = {"-P", "--popular", "—popular"}.intersection(set(tags))
+    _no_related_tags = {"--no-related", "—no-related"}.intersection(set(tags))
+    print(_p_tags, _no_related_tags)
+    if _p_tags:
+        logger.debug("popular mode")
+        for arg in _p_tags:
+            tags.remove(arg)
         sort = "popular_desc"
         sort_popular = True
-    if "--no-related" in tags or "—no-related" in tags:
-        print("Disabling related image search...")
-        try:
-            tags.remove("--no-related")
-        except ValueError:
-            tags.remove("—no-related")
+
+    if _no_related_tags:
+        logger.debug("Related image search disabled.")
+        for arg in _no_related_tags:
+            tags.remove(arg)
         related = False
 
-    notice_msg = await helper.reply_status(
-        message=message,
+    if not translate_tags:
+        _tl_args = {
+            "--no-tl",
+            "—no-tl",
+            "--no-translate-tags",
+            "—no-translate-tags",
+        }.intersection(set(tags))
+        if _tl_args:
+            logger.debug("Tag translation disabled.")
+            for arg in _tl_args:
+                tags.remove(arg)
+            translate_tags = False
+        else:
+            translate_tags = True
+
+    if translate_tags:
+        notice_msg = await helper.reply_status(
+            message=message,
+            text="""Translating tags <code>{keyword}</code>...""".format(
+                keyword=", ".join(tags),
+            ),
+            silent=True,
+        )
+        tags = await pixiv.translate_tags(tags=tags)
+
+    notice_msg = await helper.edit_status(
+        message=message if notice_msg is None else notice_msg,
         text="""Searching for <code>{keyword}</code>{popular_mode}{no_related}...{notice}""".format(
             keyword=", ".join(tags),
             popular_mode=" in popular mode" if sort == "popular_desc" else "",
             no_related=" without searching related image" if not related else "",
-            notice="\n<b>Note:</b> <code>qsearch</code> provides higher performance & stability in exchange for worse resolution"
+            notice="\n<b>Note:</b> \
+            <code>qsearch</code> provides higher performance & stability in exchange for worse resolution"
             if not quick
             else "",
         ),
-        silent=True,
     )
 
     try:
@@ -348,10 +406,9 @@ async def pixiv_search_cmd(
             message=notice_msg,
             text="Failed to search for image: <code>{}</code>".format(e),
         )
-        logging.warning("Error while searching for images: {}".format(e))
+        logger.warning("Error while searching for images: {}".format(e))
         return
 
-    quality = "original"
     if quick:
         quality = "large"
     try:
@@ -361,19 +418,27 @@ async def pixiv_search_cmd(
             message=notice_msg,
             text="Failed to fetch illustration: <code>{}</code>".format(e),
         )
-        logging.warning("Error while downloading images: {}".format(e))
+        logger.warning("Error while downloading images: {}".format(e))
         return
 
-    logging.info("Generating callback for button...")
+    logger.debug("Generating callback for button...")
 
     async def cb_next(_: Update, __: CallbackContext):
-        return await pixiv_search_cmd(update, context, quick=quick)
+        return await pixiv_search_cmd(
+            update, context, quick=quick, translate_tags=translate_tags
+        )
 
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illusts_search["id"])]
         return await pixiv_related_cmd(
-            update, clone_context, quick=quick, tags=tags, sort_popular=sort_popular
+            update,
+            clone_context,
+            quick=quick,
+            tags=tags,
+            sort_popular=sort_popular,
+            no_related=not related,
+            translate_tags=translate_tags,
         )
 
     async def cb_getoriginalres(cb_update: Update, _: CallbackContext):
@@ -427,7 +492,7 @@ async def pixiv_search_cmd(
         await helper.edit_error(
             message=notice_msg, text="Failed to send images: <code>{}</code>".format(e)
         )
-        logging.warning("Error while sending message: {}".format(e))
+        logger.warning("Error while sending message: {}".format(e))
 
 
 async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -460,19 +525,19 @@ async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def init_pixiv(application: Application) -> bool:
     try:
         if os.getenv("PIXIV_REFRESH_TOKEN"):
-            logging.info("Logging into Pixiv using refresh token...")
+            logger.info("Logging into Pixiv using refresh token...")
             pixiv.login_token(os.getenv("PIXIV_REFRESH_TOKEN"))
         else:
-            logging.info("Logging into Pixiv using credentials...")
-            logging.warning("It's recommended to use refresh token to login instead.")
+            logger.info("Logging into Pixiv using credentials...")
+            logger.warning("It's recommended to use refresh token to login instead.")
             pixiv.login(os.getenv("PIXIV_USERNAME"), os.getenv("PIXIV_PASSWORD"))
     except PixivLoginError as e:
-        logging.error(
+        logger.error(
             "Logging into Pixiv failed, disabling Pixiv-related feature: {}".format(e)
         )
         return False
     pixiv.flask_api(app=app)
-    logging.info("Loading Pixiv commands...")
+    logger.info("Loading Pixiv commands...")
     application.add_handler(CommandHandler("pixiv", pixiv_cmd))
     return True
 
@@ -491,10 +556,14 @@ def init_flask():
 
 def main():
     # Initialize task unrelated to Telegram bot itself.
+    logging.info("Initializing logging...")
+    loglevel = os.getenv("LOGLEVEL", "INFO")
+    logger.setLevel(loglevel)
     application = ApplicationBuilder().token(os.getenv("TOKEN")).build()
     init_pixiv(application=application)
     init_flask()
-    logging.info("Loading default commands...")
+    logger.info("Loading default commands...")
+    logger.info("Logging level: {}".format(loglevel))
+    logger.debug("Say hi!")
     application.add_handlers([CommandHandler("start", start_cmd)])
-
     application.run_polling()
