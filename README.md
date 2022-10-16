@@ -13,13 +13,15 @@ PIXIV_REFRESH_TOKEN=<refresh-token>
 # if PIXIV_REFRESH_TOKEN doesn't exist, it'll read username & password from env vars below
 PIXIV_USERNAME=<username>
 PIXIV_PASSWORD=<password>
+# If you want to change log level (default is INFO)
+LOGLEVEL=DEBUG
 ```
 
 Then use poetry to install project dependencies:
 
 ```bash
 poetry install
-# or poetry install -E login for logging in with credential support
+# or poetry install -E login for logging in with credential support (Chrome required)
 ```
 
 And finally run the bot itself:
@@ -30,14 +32,19 @@ poetry run python -m ayayaxyz
 
 ## Commands
 
-Currently there are 1 command available:
+Currently there is 1 command available:
 
 ### `pixiv`
 
 #### `search`
 
-Search an image from the given keywords which is seperated by ",".
-You can optionally use `-P`/`--popular` to get only popular-related image, `--no-related` to not search for related image *(more duplicated images!)*, and `-<keyword>` to blacklist a keyword from search result.
+Search an image from the given keywords, which is seperated by ",".
+
++ `-P`/`--popular`: Search only popular-related images.
++ `--no-related`: Do not search for related image in the search algorithm *(more duplicated images!)*
++ `--no-tl`/`--no-translate-tags`: Do not translate tags from English to Japanese (e.g: Nino Nakano won't be translated to 中野二乃 before searching)
++ `-<tag>` to exclude `<tag>` from search result (can be specified multiple times)
+
 > E.g: `/pixiv search Ayaka, Ayato, -P, --no-related, -Keqing`: This will search for image with "Ayaka", "Ayato" *without* searching for related image and "Keqing" tag.
 
 #### `id`
