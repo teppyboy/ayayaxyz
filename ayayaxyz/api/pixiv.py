@@ -392,31 +392,41 @@ class Pixiv:
         return image
 
     @staticmethod
-    def _translate_tags(image, tags) -> list[str]:
-        print("Begin tag translation.")
-        tags = [x if x == "R-18" else x.lower() for x in tags]
-        for tag in image["tags"]:
-            for i, v in enumerate(tags):
-                kw_set = set(v.split(" "))
-                if tag["translated_name"] is not None and kw_set.issubset(
-                    tag["translated_name"].lower().split(" ")
-                ):
-                    print(tag, i, kw_set)
-                    tags[i] = tag["name"]
-        print("final translated tags", tags)
-        return tags
+    def _translate_tag(img, tag) -> str:
+        print(img["tags"])
+        for img_tag in img["tags"]:
+            kw_set = set(tag.lower().split(" "))
+            print(kw_set, img_tag["translated_name"])
+            if img_tag["translated_name"] is not None and kw_set.issubset(
+                img_tag["translated_name"].lower().split(" ")
+            ):
+                print("tl trigger")
+                tag = img_tag["name"]
+                break
+        print("final translated tag", tag)
+        return tag
 
     async def translate_tags(self, tags: list[str]) -> list[str]:
-        return self._translate_tags(
-            image=await self._search_illust(
-                tags=tags,
-                related=True,
-                sort="popular_desc",
-                max_attempt=1,
-                max_related_attempt=1,
-            ),
-            tags=tags,
-        )
+        tl_tags = []
+        for tag in tags:
+            print("Begin translate tag", tag)
+            if tag.lower() == "r-18":
+                tl_tags.append("R-18")
+                continue
+            tl_tag = self._translate_tag(
+                img=await self._search_illust(
+                    tags=[tag],
+                    related=True,
+                    sort="popular_desc",
+                    max_attempt=1,
+                    max_related_attempt=1,
+                ),
+                tag=tag,
+            )
+            print("Translated tag", tl_tag)
+            tl_tags.append(tl_tag)
+        print("Final translated tags", tl_tags)
+        return tl_tags
 
     async def search_illust(
         self,
