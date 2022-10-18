@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sys
 import time
+import requests
 from io import BytesIO
 from pathlib import Path, PurePath
 from random import randint
@@ -52,6 +53,7 @@ class PixivSearchRelatedError(PixivSearchError):
 class Pixiv:
     def __init__(self):
         self._pixiv = AppPixivAPI()
+        self._session = requests.Session()
         self._path = Path("./pixiv")
         self._logger = logging.getLogger("ayayaxyz.api.pixiv")
         if not self._path.is_dir():
@@ -406,7 +408,7 @@ class Pixiv:
         print("final translated tag", tag)
         return tag
 
-    async def translate_tags(self, tags: list[str]) -> list[str]:
+    async def translate_tags_legacy(self, tags: list[str]) -> list[str]:
         tl_tags = []
         for tag in tags:
             print("Begin translate tag", tag)
@@ -426,6 +428,33 @@ class Pixiv:
             print("Translated tag", tl_tag)
             tl_tags.append(tl_tag)
         print("Final translated tags", tl_tags)
+        return tl_tags
+
+    async def translate_tags(self, tags: list[str]) -> list[str]:
+        """
+        Experimental tags translation using Pixiv Ajax API
+        """
+        tl_tags = []
+        for tag in tags:
+            print("Translating", tag)
+            tag = tag.lower()
+            r = self._session.get(
+                "https://www.pixiv.net/rpc/cps.php",
+                params={"keyword": tag.split(" ")[0], "lang": "en"},
+                headers={
+                    "Referer": "https://www.pixiv.net/en/",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
+                },
+            )
+            r.raise_for_status()
+            suggestions = r.json()
+            for candidate in suggestions["candidates"]:
+                if candidate["type"] != "tag_translation":
+                    continue
+                if tag in candidate["tag_translation"].lower():
+                    tl_tags.append(candidate["tag_name"])
+                    break
+        print(tl_tags)
         return tl_tags
 
     async def search_illust(

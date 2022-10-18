@@ -208,20 +208,12 @@ async def pixiv_related_cmd(
         await helper.reply_error(message=message, text=get_id[1])
         return
     illust_id = get_id[1]
+    tags_orig = None
     if len(context.args) > 1:
         keyword = " ".join(context.args[1:])
         tags = [x.strip() for x in keyword.split(",")]
-    notice_msg = await helper.reply_status(
-        message=message,
-        text="""Searching for image related to <code>{illust_id}</code>{with_tags}...""".format(
-            illust_id=illust_id,
-            with_tags=" with tags <code>{}</code>".format(", ".join(tags))
-            if tags
-            else "",
-        ),
-        silent=True,
-    )
     if tags:
+        tags_orig = copy(tags)
         if not translate_tags:
             _tl_args = {
                 "--no-tl",
@@ -241,6 +233,17 @@ async def pixiv_related_cmd(
                 tags = await pixiv.translate_tags(tags=tags)
             except PixivSearchError:
                 pass
+
+    notice_msg = await helper.reply_status(
+        message=message,
+        text="""Searching for image related to <code>{illust_id}</code>{with_tags}...""".format(
+            illust_id=illust_id,
+            with_tags=" with tags <code>{}</code>".format(", ".join(tags))
+            if tags
+            else "",
+        ),
+        silent=True,
+    )
     try:
         illust = await pixiv.related_illust(illust_id, tags=tags, recurse=3)
     except PixivSearchError as e:
@@ -264,11 +267,12 @@ async def pixiv_related_cmd(
 
         async def cb_next(_: Update, __: CallbackContext):
             if sort_popular:
-                tags.append("-P")
+                tags_orig.append("-P")
             if no_related:
-                tags.append("--no-related")
+                tags_orig.append("--no-related")
+            print(type(tags_orig))
             clone_context = copy(context)
-            clone_context.args = ",".join(tags).split(" ")
+            clone_context.args = ",".join(tags_orig).split(" ")
             return await pixiv_search_cmd(
                 update, clone_context, quick=quick, translate_tags=translate_tags
             )
@@ -348,6 +352,7 @@ async def pixiv_search_cmd(
     message = update.effective_message
     keyword = " ".join(context.args)
     tags = [x.strip() for x in keyword.split(",")]
+    tags_orig = copy(tags)
     related = True
     sort_popular = False
     sort = None
@@ -463,7 +468,7 @@ async def pixiv_search_cmd(
             update,
             clone_context,
             quick=quick,
-            tags=tags,
+            tags=tags_orig,
             sort_popular=sort_popular,
             no_related=not related,
             translate_tags=translate_tags,
@@ -509,7 +514,7 @@ async def pixiv_search_cmd(
             caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
                 illust_id=illusts_search["id"],
                 notice="\nThis image has low resolution, click <i>Hi-res</i> to get higher resolution & all pages"
-                if quality != "original"
+                if quick
                 else "",
             ),
             parse_mode="HTML",
