@@ -1,6 +1,9 @@
 from io import BytesIO
 import os
 import logging
+
+import telegram
+
 import ayayaxyz.helper as helper
 from copy import copy
 from telegram import Update, InputMediaPhoto, InlineKeyboardMarkup
@@ -47,6 +50,26 @@ def _pixiv_get_id(context: ContextTypes.DEFAULT_TYPE):
     return True, illust_id
 
 
+async def _pixiv_dl_illust(
+    quick: bool, illust, pictures: list[int], message: telegram.Message
+) -> list | dict:
+    quality = "original"
+    if quick:
+        quality = "large"
+    try:
+        illusts = await pixiv.download_illust(
+            illust=illust, pictures=pictures, quality=quality, limit=9
+        )
+    except PixivDownloadError as e:
+        msg_kwargs = {
+            "message": message,
+            "text": "Failed to fetch illustration: <code>{}</code>".format(e),
+        }
+        logger.warning("Error while downloading images: {}".format(e))
+        return msg_kwargs
+    return illusts
+
+
 async def pixiv_id_cmd(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -87,24 +110,17 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         pictures = [int(x) - 1 for x in context.args[1:]]
     except ValueError:
         await helper.edit_error(message=notice_msg, text="Pages list must be integers")
-    quality = "original"
-    if quick:
-        quality = "large"
+        return
     illust = await pixiv.get_illust_from_id(illust_id)
-    try:
-        illusts = await pixiv.download_illust(
-            illust, pictures, quality=quality, limit=9, to_url=full_resolution
-        )
-    except PixivDownloadError as e:
-        msg_kwargs = {
-            "message": notice_msg,
-            "text": "Failed to fetch illustration: <code>{}</code>".format(e),
-        }
+    illusts = await _pixiv_dl_illust(
+        quick=quick, illust=illust, pictures=pictures, message=notice_msg
+    )
+    if illusts is dict:
         if not quick:
-            msg_kwargs.update(
+            illusts.update(
                 {"reply_markup": InlineKeyboardMarkup(inline_keyboard=error_buttons)}
             )
-        await helper.edit_error(**msg_kwargs)
+        await helper.edit_error(**illusts)
         return
     logger.debug("Trying to send images bytes...")
     caption = "https://www.pixiv.net/en/artworks/{illust_id}".format(
@@ -235,17 +251,11 @@ async def pixiv_related_cmd(
         logger.warning("Error while searching for related image: {}".format(e))
         return
 
-    quality = "original"
-    if quick:
-        quality = "large"
-    try:
-        illusts = await pixiv.download_illust(illust, [0], quality, 9)
-    except PixivDownloadError as e:
-        await helper.edit_error(
-            message=notice_msg,
-            text="Failed to fetch illustration: <code>{}</code>".format(e),
-        )
-        logger.warning("Error while downloading images: {}".format(e))
+    illusts = await _pixiv_dl_illust(
+        quick=quick, illust=illust, pictures=[0], message=notice_msg
+    )
+    if illusts is dict:
+        await helper.edit_error(**illusts)
         return
 
     logger.debug("Trying to send images bytes...")
@@ -315,7 +325,7 @@ async def pixiv_related_cmd(
             caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
                 illust_id=illust["id"],
                 notice="\nThis image has low resolution, click <i>Hi-res</i> to get higher resolution"
-                if quality != "original"
+                if quick
                 else "",
             ),
             parse_mode="HTML",
@@ -336,10 +346,6 @@ async def pixiv_search_cmd(
     translate_tags: bool = None,
 ):
     message = update.effective_message
-    if len(context.args) == 0:
-        await message.reply_text(text="No keyword provided.")
-        return
-
     keyword = " ".join(context.args)
     tags = [x.strip() for x in keyword.split(",")]
     related = True
@@ -348,9 +354,19 @@ async def pixiv_search_cmd(
     quality = "original"
     notice_msg = None
     # Telegram workaround when you type -- in chat
+    _help_tags = {"-H", "--help", "—help"}.intersection(set(tags))
     _p_tags = {"-P", "--popular", "—popular"}.intersection(set(tags))
     _no_related_tags = {"--no-related", "—no-related"}.intersection(set(tags))
-    print(_p_tags, _no_related_tags)
+    logger.debug("{} {}".format(_p_tags, _no_related_tags))
+    if _help_tags:
+        await helper.reply_html(
+            message=message,
+            text="<b>Help:</b> https://github.com/teppyboy/ayayaxyz#{}".format(
+                "qsearch" if quick else "search"
+            ),
+        )
+        return
+
     if _p_tags:
         logger.debug("popular mode")
         for arg in _p_tags:
@@ -379,6 +395,10 @@ async def pixiv_search_cmd(
         else:
             translate_tags = True
 
+    if len(tags) == 0:
+        await helper.reply_error(message=message, text="No keyword provided.")
+        return
+
     if translate_tags:
         notice_msg = await helper.reply_status(
             message=message,
@@ -396,8 +416,8 @@ async def pixiv_search_cmd(
         keyword=", ".join(tags),
         popular_mode=" in popular mode" if sort == "popular_desc" else "",
         no_related=" without searching related image" if not related else "",
-        notice="\n<b>Note:</b> \
-        <code>qsearch</code> provides higher performance & stability in exchange for worse resolution"
+        notice="\n<b>Note:</b> "
+        + "<code>qsearch</code> provides higher performance & stability in exchange for worse resolution"
         if not quick
         else "",
     )
@@ -422,16 +442,11 @@ async def pixiv_search_cmd(
         logger.warning("Error while searching for images: {}".format(e))
         return
 
-    if quick:
-        quality = "large"
-    try:
-        illusts = await pixiv.download_illust(illusts_search, [0], quality, 9)
-    except PixivDownloadError as e:
-        await helper.edit_error(
-            message=notice_msg,
-            text="Failed to fetch illustration: <code>{}</code>".format(e),
-        )
-        logger.warning("Error while downloading images: {}".format(e))
+    illusts = await _pixiv_dl_illust(
+        quick=quick, illust=illusts_search, pictures=[0], message=notice_msg
+    )
+    if illusts is dict:
+        await helper.edit_error(**illusts)
         return
 
     logger.debug("Generating callback for button...")
