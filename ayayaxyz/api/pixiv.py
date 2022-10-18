@@ -249,6 +249,7 @@ class Pixiv:
                 continue
             print("beginning tag partial matching")
             found_tags = set()
+            found_bl_tags = set()
             # Found tags for joined words.
             found_tags_jw = set()
             for tag in current_image["tags"]:
@@ -260,9 +261,11 @@ class Pixiv:
                         if tag["translated_name"] is not None and kw_set.issubset(
                             tag["translated_name"].lower().split(" ")
                         ):
-                            break
+                            found_bl_tags.add(kw)
+                            continue
                         if kw_set.issubset(tag["name"].lower().split(" ")):
-                            break
+                            found_bl_tags.add(kw)
+                            continue
                 # Keyword in out specified tags
                 for kw in tags:
                     # Normal search
@@ -297,6 +300,9 @@ class Pixiv:
             found_tags.update(found_tags_jw)
             print("final tags", found_tags, tags)
             if tags == found_tags:
+                if found_bl_tags and found_bl_tags.issubset(exclude_tags):
+                    print("illust contains blacklisted words, not using")
+                    continue
                 image = current_image
         print("found image we maybe looking for")
         return image
@@ -346,6 +352,7 @@ class Pixiv:
         tags_orig = tags
         exclude_tags = set(x for x in tags if x.startswith("-"))
         tags = set(tags) - exclude_tags
+        print(tags, exclude_tags)
         filter = ""
         # if "R-18" not in tags and "r-18" not in tags:
         #     # Be safe here, no NSFW ;)
@@ -437,6 +444,10 @@ class Pixiv:
         tl_tags = []
         for tag in tags:
             print("Translating", tag)
+            exclude_tag = False
+            if tag.startswith("-"):
+                tag = tag[1:]
+                exclude_tag = True
             tag_name = tag
             tag = tag.lower()
             tag_kw = set(tag.split(" "))
@@ -456,6 +467,8 @@ class Pixiv:
                 if tag_kw.issubset(candidate["tag_translation"].lower().split(" ")):
                     tag_name = candidate["tag_name"]
                     break
+            if exclude_tag:
+                tag_name = "-" + tag
             tl_tags.append(tag_name)
         print(tl_tags)
         return tl_tags
