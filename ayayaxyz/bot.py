@@ -286,7 +286,7 @@ async def pixiv_related_cmd(
             update,
             clone_context,
             quick=quick,
-            tags=tags,
+            tags=tags_orig,
             sort_popular=sort_popular,
             no_related=no_related,
             translate_tags=translate_tags,
