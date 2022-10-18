@@ -437,7 +437,9 @@ class Pixiv:
         tl_tags = []
         for tag in tags:
             print("Translating", tag)
+            tag_name = tag
             tag = tag.lower()
+            tag_kw = set(tag.split(" "))
             r = self._session.get(
                 "https://www.pixiv.net/rpc/cps.php",
                 params={"keyword": tag.split(" ")[0], "lang": "en"},
@@ -451,9 +453,10 @@ class Pixiv:
             for candidate in suggestions["candidates"]:
                 if candidate["type"] != "tag_translation":
                     continue
-                if tag in candidate["tag_translation"].lower():
-                    tl_tags.append(candidate["tag_name"])
+                if tag_kw.issubset(candidate["tag_translation"].lower().split(" ")):
+                    tag_name = candidate["tag_name"]
                     break
+            tl_tags.append(tag_name)
         print(tl_tags)
         return tl_tags
 
