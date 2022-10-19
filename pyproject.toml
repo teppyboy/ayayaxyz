@@ -13,6 +13,7 @@ PixivPy3 = "^3.7.1"
 Flask = {extras = ["async"], version = "^2.2.2"}
 appdirs = "^1.4.4"
 waitress = "^2.1.2"
+requests-cache = "^0.9.6"
 
 [tool.poetry.dev-dependencies]
 pyre-check = "^0.9.16"

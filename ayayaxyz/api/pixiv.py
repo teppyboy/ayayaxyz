@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sys
 import time
-import requests
+import requests_cache
 from io import BytesIO
 from pathlib import Path, PurePath
 from random import randint
@@ -53,7 +53,7 @@ class PixivSearchRelatedError(PixivSearchError):
 class Pixiv:
     def __init__(self):
         self._pixiv = AppPixivAPI()
-        self._session = requests.Session()
+        self._session = requests_cache.CachedSession("ayayaxyz-api-pixiv")
         self._path = Path("./pixiv")
         self._logger = logging.getLogger("ayayaxyz.api.pixiv")
         if not self._path.is_dir():
