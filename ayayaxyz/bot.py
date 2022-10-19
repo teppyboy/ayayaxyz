@@ -196,6 +196,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
 async def pixiv_related_cmd(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
+    parent_logger: logging.Logger,
     quick: bool = False,
     tags: list[str] = None,
     sort_popular: bool = False,
@@ -274,7 +275,11 @@ async def pixiv_related_cmd(
             clone_context = copy(context)
             clone_context.args = ",".join(tags_orig).split(" ")
             return await pixiv_search_cmd(
-                update, clone_context, quick=quick, translate_tags=translate_tags
+                update=update,
+                context=clone_context,
+                parent_logger=parent_logger,
+                quick=quick,
+                translate_tags=translate_tags,
             )
 
         search_row.append(("Next", cb_next, "pixiv-search-cb-next-{id}"))
@@ -283,8 +288,9 @@ async def pixiv_related_cmd(
         clone_context = copy(context)
         clone_context.args = [str(illust["id"])]
         return await pixiv_related_cmd(
-            update,
-            clone_context,
+            update=update,
+            context=clone_context,
+            parent_logger=parent_logger,
             quick=quick,
             tags=tags_orig,
             sort_popular=sort_popular,
@@ -460,15 +466,20 @@ async def pixiv_search_cmd(
 
     async def cb_next(_: Update, __: CallbackContext):
         return await pixiv_search_cmd(
-            update, context, quick=quick, translate_tags=translate_tags
+            update=update,
+            context=context,
+            parent_logger=parent_logger,
+            quick=quick,
+            translate_tags=translate_tags,
         )
 
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illusts_search["id"])]
         return await pixiv_related_cmd(
-            update,
-            clone_context,
+            update=update,
+            context=clone_context,
+            parent_logger=parent_logger,
             quick=quick,
             tags=tags_orig,
             sort_popular=sort_popular,
@@ -555,9 +566,13 @@ async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     update=update, parent_logger=logger, context=context, quick=True
                 )
             case "related":
-                await pixiv_related_cmd(update=update, context=context)
+                await pixiv_related_cmd(
+                    update=update, context=context, parent_logger=logger
+                )
             case "qrelated":
-                await pixiv_related_cmd(update=update, context=context, quick=True)
+                await pixiv_related_cmd(
+                    update=update, context=context, parent_logger=logger, quick=True
+                )
             case _:
                 await helper.reply_error(message=message, text="Invalid command.")
 
