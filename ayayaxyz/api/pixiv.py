@@ -8,7 +8,6 @@ from pathlib import Path, PurePath
 from random import randint
 from threading import Thread
 from urllib.parse import urlparse
-from typing import Optional
 
 from appdirs import user_cache_dir
 from flask import send_file, Flask
@@ -68,7 +67,7 @@ class Pixiv:
         # Login workaround
         self._login_thread = None
 
-    def login_token(self, refresh_token):
+    def login_token(self, refresh_token: str):
         if self._login_thread:
             return
 
@@ -99,7 +98,9 @@ class Pixiv:
             raise PixivLoginError(e)
         self.login_token(refresh_token=login_rsp.get("refresh_token"))
 
-    async def _download_illust(self, url, path: Optional[Path] = None) -> (BytesIO | None, str):
+    async def _download_illust(
+        self, url: str, path: Path | None = None
+    ) -> tuple[BytesIO | None, str]:
         if path:
             path = self._path.joinpath(path).parent
             path.mkdir(parents=True, exist_ok=True)
@@ -112,7 +113,7 @@ class Pixiv:
         )
         return image_bytes, image_name
 
-    async def get_illust_from_id(self, illust_id: int):
+    async def get_illust_from_id(self, illust_id: int) -> dict:
         try:
             illust = (await asyncio.to_thread(self._pixiv.illust_detail, illust_id))[
                 "illust"
@@ -125,8 +126,8 @@ class Pixiv:
 
     @staticmethod
     async def get_illust_download_url(
-        illust, pictures: list[int] | None = None, quality="original"
-    ):
+        illust: dict, pictures: list[int] | None = None, quality: str = "original"
+    ) -> list[str]:
         print("Fetching {}".format(illust["id"]))
         if illust["meta_single_page"] == {}:
             print("Multiple pages illustration.")
@@ -146,7 +147,7 @@ class Pixiv:
         self,
         illust,
         pictures: list[int] | None = None,
-        quality="original",
+        quality: str = "original",
         limit: int | None = None,
         to_url: bool | None = False,
     ):
@@ -203,7 +204,7 @@ class Pixiv:
         return images
 
     @staticmethod
-    def _get_raw_tags(image):
+    def _get_raw_tags(image) -> list[str]:
         tags = []
         for tag in image["tags"]:
             tags.append(tag["name"])
@@ -214,8 +215,9 @@ class Pixiv:
         images,
         tags: list[str] | set[str] | None = None,
         exclude_tags: list[str] | set[str] | None = None,
-    ):
-        print("Using hacky algorithm...")
+    ) -> dict:
+        logger = self._logger.getChild("image_from_tag_matching")
+        logger.debug("Using hacky image matching algorithm...")
         if tags is None:
             return images[randint(0, len(images) - 1)]
         if exclude_tags is None:
@@ -226,39 +228,39 @@ class Pixiv:
         image = None
         searched_images = []
         while image is None:
-            print("prev img", searched_images)
+            logger.debug(f"Previous image: {searched_images}")
             if len(searched_images) == len(images):
                 raise PixivSearchError(
                     "Couldn't find any images matching provided keywords"
                 )
             while True:
-                print("images size", len(images))
+                logger.debug(f"Image array size: {len(images)}")
                 image_count = randint(0, len(images) - 1)
-                print("image count", image_count)
+                logger.debug(f"Selecting image: {image_count}")
                 if image_count not in searched_images:
                     break
-            print("image index", image_count)
+            logger.debug(f"Current selected image: {image_count}")
             searched_images.append(image_count)
             current_image = images[image_count]
-            print(self._get_raw_tags(current_image))
+            logger.debug(f"Raw tags: {self._get_raw_tags(current_image)}")
             r18_image = "R-18" in self._get_raw_tags(current_image)
             if r18_image and "r-18" not in tags:
-                print("A r-18 image but we don't want r-18")
+                logger.debug("Image is a R-18 but we don't want R-18")
                 continue
             elif not r18_image and "r-18" in tags:
-                print("Not a r-18 image but we wanted r-18")
+                logger.debug("Image is not a R-18 image but we wanted R-18")
                 continue
-            print("beginning tag partial matching")
+            logger.debug("Begin tag partial matching")
             found_tags = set()
             found_bl_tags = set()
             # Found tags for joined words.
             found_tags_jw = set()
             for tag in current_image["tags"]:
+                logger.debug(f"Comparing with {tag['name']} ({tag['translated_name']})")
                 if exclude_tags:
                     for kw in exclude_tags:
                         kw_set = set(kw.split(" "))
-                        print("parsing tag:", tag["name"], tag["translated_name"])
-                        print("current blacklist tag:", kw_set)
+                        logger.debug(f"Current blacklist keyword: {kw_set}")
                         if tag["translated_name"] is not None and kw_set.issubset(
                             tag["translated_name"].lower().split(" ")
                         ):
@@ -299,18 +301,21 @@ class Pixiv:
                         continue
 
             found_tags.update(found_tags_jw)
-            print("final tags", found_tags, tags)
+            logger.debug(f"Final found tags & defined tags: {found_tags}, {tags}")
             if tags == found_tags:
                 if found_bl_tags and found_bl_tags.issubset(exclude_tags):
-                    print("illust contains blacklisted words, not using")
+                    logging.debug("Illust contains blacklisted words, not using")
                     continue
                 image = current_image
-        print("found image we maybe looking for")
+        logger.debug("Found the illust we are maybe looking for")
         return image
 
     async def related_illust(
-        self, illust_id: int, tags: list[str] | set[str] | None = None, recurse: int | None = None
-    ):
+        self,
+        illust_id: int,
+        tags: list[str] | set[str] | None = None,
+        recurse: int | None = None,
+    ) -> dict:
         if recurse is None:
             recurse = 0
         if recurse < 0:
@@ -359,7 +364,7 @@ class Pixiv:
         #     # Be safe here, no NSFW ;)
         #     filter = "for_ios"
         attempt = 0
-        image = None
+        image: dict = None
         while image is None and attempt < max_attempt:
             print("Search attempt", attempt)
             if sort is None:
@@ -438,40 +443,64 @@ class Pixiv:
         print("Final translated tags", tl_tags)
         return tl_tags
 
+    def _translate_tag(self, tag_kw: set[str], kw: str) -> str:
+        tag_name: str = None
+        r = self._session.get(
+            "https://www.pixiv.net/rpc/cps.php",
+            params={"keyword": kw, "lang": "en"},
+            headers={
+                "Referer": "https://www.pixiv.net/en/",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
+            },
+        )
+        r.raise_for_status()
+        suggestions = r.json()
+        for candidate in suggestions["candidates"]:
+            if candidate["type"] != "tag_translation":
+                continue
+            if tag_kw.issubset(candidate["tag_translation"].lower().split(" ")):
+                tag_name = candidate["tag_name"]
+                break
+        return tag_name
+
     async def translate_tags(self, tags: list[str]) -> list[str]:
         """
         Experimental tags translation using Pixiv Ajax API
         """
-        tl_tags = []
+        logger: logging.Logger = self._logger.getChild("translate_tags")
+        tl_tags: list[str] = []
         for tag in tags:
-            print("Translating", tag)
-            exclude_tag = False
+            if tag in ["R-18"]:
+                logger.debug("Known tag: {}, not translating...".format(tag))
+                tl_tags.append(tag)
+                continue
+            logger.debug("Translating tag: {}".format(tag))
+            exclude_tag: bool = False
             if tag.startswith("-"):
+                logger.debug("Exclude tag detected.")
                 tag = tag[1:]
                 exclude_tag = True
-            tag_name = tag
+            tag_name: str = tag
             tag = tag.lower()
-            tag_kw = set(tag.split(" "))
-            r = self._session.get(
-                "https://www.pixiv.net/rpc/cps.php",
-                params={"keyword": tag.split(" ")[0], "lang": "en"},
-                headers={
-                    "Referer": "https://www.pixiv.net/en/",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
-                },
-            )
-            r.raise_for_status()
-            suggestions = r.json()
-            for candidate in suggestions["candidates"]:
-                if candidate["type"] != "tag_translation":
-                    continue
-                if tag_kw.issubset(candidate["tag_translation"].lower().split(" ")):
-                    tag_name = candidate["tag_name"]
-                    break
+            tag_list: list[str] = tag.split(" ")
+            tag_kw: set[str] = set(tag_list)
+            if len(tag_list) > 1:
+                tag_list[-1] = tag_list[-1][: int(len(tag_list[-1]) / 2)]
+            px_search = " ".join(tag_list)
+            logger.debug("Generated Pixiv search query: {}".format(px_search))
+            tl_tag_name = self._translate_tag(tag_kw=tag_kw, kw=px_search)
+            if tl_tag_name is None:
+                logger.debug(
+                    "Pixiv query search failed, using first word in tag to search..."
+                )
+                tl_tag_name = (
+                    self._translate_tag(tag_kw=tag_kw, kw=tag_list[0]) or tag_name
+                )
             if exclude_tag:
-                tag_name = "-" + tag
-            tl_tags.append(tag_name)
-        print(tl_tags)
+                tl_tag_name = "-" + tag
+            logger.debug("Translated tag: {}".format(tl_tag_name))
+            tl_tags.append(tl_tag_name)
+        logger.debug("Final translated tags: {}".format(str(tl_tags)))
         return tl_tags
 
     async def search_illust(

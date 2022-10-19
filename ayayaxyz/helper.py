@@ -88,7 +88,7 @@ def button_build(button: tuple[str, Any, str, str], application: Application):
 def buttons_build(
     button_list: list[list[tuple[str, Any, str, str]]],
     application: Application,
-    base: list[list[InlineKeyboardButton]] = None,
+    base: list[list[InlineKeyboardButton]] | None = None,
 ) -> list[list[InlineKeyboardButton]]:
     if base is None:
         base = []
