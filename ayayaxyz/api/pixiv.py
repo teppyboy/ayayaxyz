@@ -8,6 +8,7 @@ from pathlib import Path, PurePath
 from random import randint
 from threading import Thread
 from urllib.parse import urlparse
+from typing import Optional
 
 from appdirs import user_cache_dir
 from flask import send_file, Flask
@@ -84,7 +85,7 @@ class Pixiv:
         self._login_thread.start()
         time.sleep(1)
 
-    def login(self, username, password):
+    def login(self, username: str, password: str):
         if self._login_thread:
             return
         try:
@@ -98,7 +99,7 @@ class Pixiv:
             raise PixivLoginError(e)
         self.login_token(refresh_token=login_rsp.get("refresh_token"))
 
-    async def _download_illust(self, url, path: Path = None):
+    async def _download_illust(self, url, path: Optional[Path] = None) -> (BytesIO | None, str):
         if path:
             path = self._path.joinpath(path).parent
             path.mkdir(parents=True, exist_ok=True)
@@ -124,7 +125,7 @@ class Pixiv:
 
     @staticmethod
     async def get_illust_download_url(
-        illust, pictures: list[int] = None, quality="original"
+        illust, pictures: list[int] | None = None, quality="original"
     ):
         print("Fetching {}".format(illust["id"]))
         if illust["meta_single_page"] == {}:
@@ -144,10 +145,10 @@ class Pixiv:
     async def download_illust(
         self,
         illust,
-        pictures: list[int] = None,
+        pictures: list[int] | None = None,
         quality="original",
-        limit: int = None,
-        to_url: bool = False,
+        limit: int | None = None,
+        to_url: bool | None = False,
     ):
         if limit is not None and pictures is not None and len(pictures) > limit:
             raise PixivDownloadError(
@@ -211,8 +212,8 @@ class Pixiv:
     def _image_from_tag_matching(
         self,
         images,
-        tags: list[str] | set[str] = None,
-        exclude_tags: list[str] | set[str] = None,
+        tags: list[str] | set[str] | None = None,
+        exclude_tags: list[str] | set[str] | None = None,
     ):
         print("Using hacky algorithm...")
         if tags is None:
@@ -308,7 +309,7 @@ class Pixiv:
         return image
 
     async def related_illust(
-        self, illust_id: int, tags: list[str] | set[str] = None, recurse: int = None
+        self, illust_id: int, tags: list[str] | set[str] | None = None, recurse: int | None = None
     ):
         if recurse is None:
             recurse = 0
@@ -513,7 +514,7 @@ class Pixiv:
         if not self._path.joinpath(path).is_file():
             await self._download_illust(url=illust_url, path=path)
 
-    def flask_api(self, app: Flask, route: str = None):
+    def flask_api(self, app: Flask, route: str | None = None):
         if not route:
             route = "/pixiv"
 

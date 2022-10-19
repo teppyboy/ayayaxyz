@@ -37,14 +37,6 @@ jobs:
         with:
           submodules: true
 
-      - name: Set up Poetry cache for Python dependencies
-        uses: actions/cache@v2
-        if: startsWith(runner.os, 'Linux')
-        with:
-          path: ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: ${{ runner.os }}-poetry-
-
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
