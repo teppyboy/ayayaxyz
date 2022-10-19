@@ -14,7 +14,7 @@ Flask = {extras = ["async"], version = "^2.2.2"}
 appdirs = "^1.4.4"
 waitress = "^2.1.2"
 
-[tool.poetry.dev.dependencies]
+[tool.poetry.dev-dependencies]
 pyre-check = "^0.9.16"
 
 [tool.poetry.extras]
