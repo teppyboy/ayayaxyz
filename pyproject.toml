@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "ayayaxyz"
-version = "0.1.0"
-description = ""
+version = "0.1.1"
+description = "A bot for Telegram"
 authors = ["tretrauit <tretrauit@gmail.com>"]
 
 [tool.poetry.dependencies]
