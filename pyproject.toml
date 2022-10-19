@@ -15,7 +15,6 @@ appdirs = "^1.4.4"
 waitress = "^2.1.2"
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
 
 [tool.poetry.extras]
 login = ["gppt"]
