@@ -901,7 +901,7 @@ login = ["gppt"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "c8bbe1314b0ba29e03444aacb6d85a85ecebdc700cdf4220344a5bca6a3feded"
+content-hash = "7da913683805cfe81b3eb69d76c1f1a1537cd28de03713b362d02b6e0d2aee43"
 
 [metadata.files]
 anyio = [
