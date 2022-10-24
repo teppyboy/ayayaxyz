@@ -7,7 +7,6 @@ authors = ["tretrauit <tretrauit@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.10"
 python-telegram-bot = {version = "20.0a4", allow-prereleases = true}
-gppt = {git = "https://github.com/eggplants/get-pixivpy-token", optional = true}
 python-dotenv = "^0.20.0"
 PixivPy3 = "^3.7.1"
 Flask = {extras = ["async"], version = "^2.2.2"}
@@ -18,8 +17,11 @@ requests-cache = "^0.9.6"
 [tool.poetry.dev-dependencies]
 pyre-check = "^0.9.16"
 
-[tool.poetry.extras]
-login = ["gppt"]
+[tool.poetry.group.login]
+optional = true
+
+[tool.poetry.group.login.dependencies]
+gppt = {git = "https://github.com/eggplants/get-pixivpy-token"}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
