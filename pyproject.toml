@@ -7,6 +7,10 @@ authors = ["tretrauit <tretrauit@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.10"
 python-telegram-bot = {version = "20.0a4", allow-prereleases = true}
+<<<<<<< HEAD
+=======
+gppt = {version = "^2.2.0", optional = true}
+>>>>>>> parent of 563dad0 (deps: update gppt to got)
 python-dotenv = "^0.20.0"
 PixivPy3 = "^3.7.1"
 Flask = {extras = ["async"], version = "^2.2.2"}
