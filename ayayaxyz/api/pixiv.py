@@ -316,6 +316,7 @@ class Pixiv:
         tags: list[str] | set[str] | None = None,
         recurse: int | None = None,
     ) -> dict:
+        logger = self._logger.getChild("related_illust")
         if recurse is None:
             recurse = 0
         if recurse < 0:
@@ -326,10 +327,12 @@ class Pixiv:
         else:
             exclude_tags = None
             tags = set()
+        logger.debug("ID: {}, tags: {}, exclude_tags: {}".format(illust_id, tags, exclude_tags))
         try:
             result = (await asyncio.to_thread(self._pixiv.illust_related, illust_id))[
                 "illusts"
             ]
+            logger.debug("{}".format(result))
         except KeyError as e:
             raise PixivSearchRelatedError(e)
 
@@ -355,6 +358,7 @@ class Pixiv:
         max_attempt,
         max_related_attempt,
     ):
+        logger = self._logger.getChild("_search_illust")
         tags_orig = tags
         exclude_tags = set(x for x in tags if x.startswith("-"))
         tags = set(tags) - exclude_tags
@@ -364,7 +368,7 @@ class Pixiv:
         #     # Be safe here, no NSFW ;)
         #     filter = "for_ios"
         attempt = 0
-        image: dict = None
+        image: dict | None = None
         while image is None and attempt < max_attempt:
             print("Search attempt", attempt)
             if sort is None:
@@ -384,6 +388,7 @@ class Pixiv:
                 )
                 if related:
                     # Strict search
+                    logger.debug("Searching for related image to our searched image...")
                     related_image = None
                     related_attempt = 0
                     while (
