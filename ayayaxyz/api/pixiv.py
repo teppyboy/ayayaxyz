@@ -412,7 +412,7 @@ class Pixiv:
         return image
 
     @staticmethod
-    def _translate_tag(img, tag) -> str:
+    def _translate_tag_legacy(img, tag) -> str:
         print(img["tags"])
         for img_tag in img["tags"]:
             kw_set = set(tag.lower().split(" "))
@@ -433,7 +433,7 @@ class Pixiv:
             if tag.lower() == "r-18":
                 tl_tags.append("R-18")
                 continue
-            tl_tag = self._translate_tag(
+            tl_tag = self._translate_tag_legacy(
                 img=await self._search_illust(
                     tags=[tag],
                     related=True,
