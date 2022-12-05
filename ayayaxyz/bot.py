@@ -145,7 +145,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                             None,
                             "{web}/pixiv?url={url}".format(
                                 web=web_url,
-                                url=illusts[0] if illusts[0] is str else (
+                                url=illusts[0][0] if illusts[0][0] is str else (
                                     await pixiv.get_illust_download_url(illust=illust)
                                 )[0],
                             ),
@@ -158,7 +158,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
             if full_resolution:
                 photo = "{web}/pixiv?url={url}".format(
                     web=web_url,
-                    url=illusts[0],
+                    url=illusts[0][0],
                 )
                 _logger.debug(photo)
             else:
