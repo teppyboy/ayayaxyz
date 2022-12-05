@@ -66,6 +66,13 @@ A quick variant of `search`, provides result faster but worse resolution.
 
 A quick variant of `id`, provides result faster but worse resolution.
 
+#### `fid`
+
+An experimental variant of `id` which uses AyayaXYZ internal server to post Telegram images instead of uploading it directly.
+
+By doing this it'll achieve faster upload speed (even faster than `qid`) and provides nearly-good image (same as `id`) (original image is not possible since Telegram compresses images by bot)
+but a major drawback is if the webserver dies, this function will stop working.
+
 #### `qrelated`
 
 A quick variant of `related`, provides result faster but worse resolution.
