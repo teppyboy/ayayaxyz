@@ -449,7 +449,7 @@ class Pixiv:
         return tl_tags
 
     def _translate_tag(self, tag_kw: set[str], kw: str) -> str:
-        tag_name: str = None
+        tag_name: str | None = None
         r = self._session.get(
             "https://www.pixiv.net/rpc/cps.php",
             params={"keyword": kw, "lang": "en"},

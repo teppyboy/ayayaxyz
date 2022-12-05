@@ -235,6 +235,8 @@ async def pixiv_related_cmd(
             except PixivSearchError:
                 pass
 
+    _logger.debug("Formatted tags: {}".format(tags))
+
     notice_msg = await helper.reply_status(
         message=message,
         text="""Searching for image related to <code>{illust_id}</code>{with_tags}...""".format(
@@ -475,6 +477,10 @@ async def pixiv_search_cmd(
 
     async def cb_related(_: Update, __: CallbackContext):
         clone_context = copy(context)
+        if _p_tags:
+            logger.debug("Removing popular tag before calling related...")
+            for _arg in _p_tags:
+                tags_orig.remove(_arg)
         clone_context.args = [str(illusts_search["id"])]
         return await pixiv_related_cmd(
             update=update,
