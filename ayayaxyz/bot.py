@@ -24,6 +24,7 @@ from ayayaxyz.api.pixiv import (
 from flask import Flask
 from waitress import serve
 from threading import Thread
+from urllib.parse import quote_plus
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 _logger = logging.getLogger("ayayaxyz")
@@ -51,14 +52,14 @@ def _pixiv_get_id(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _pixiv_dl_illust(
-    quick: bool, illust, pictures: list[int], message: telegram.Message
+    quick: bool, illust, pictures: list[int], message: telegram.Message, to_url: bool = False
 ) -> list | dict:
     quality = "original"
     if quick:
         quality = "large"
     try:
         illusts = await pixiv.download_illust(
-            illust=illust, pictures=pictures, quality=quality, limit=9
+            illust=illust, pictures=pictures, quality=quality, limit=9, to_url=to_url
         )
     except PixivDownloadError as e:
         msg_kwargs = {
@@ -112,8 +113,12 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         await helper.edit_error(message=notice_msg, text="Pages list must be integers")
         return
     illust = await pixiv.get_illust_from_id(illust_id)
+    to_url = False
+    if full_resolution:
+        to_url = True
+
     illusts = await _pixiv_dl_illust(
-        quick=quick, illust=illust, pictures=pictures, message=notice_msg
+        quick=quick, illust=illust, pictures=pictures, message=notice_msg, to_url=to_url
     )
     if illusts is dict:
         if not quick:
@@ -123,8 +128,12 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         await helper.edit_error(**illusts)
         return
     _logger.debug("Trying to send images bytes...")
-    caption = "https://www.pixiv.net/en/artworks/{illust_id}".format(
-        illust_id=illust_id
+    caption = "https://www.pixiv.net/en/artworks/{illust_id}{low_res_notice}\nTags: {tags}\nTags (translated): {tl_tags}".format(
+        illust_id=illust_id,
+        low_res_notice="\nThis image has low resolution, use `id` to get higher resolution."
+        if quick else "",
+        tags=", ".join(f"<code>{x}</code>" for x in pixiv.get_raw_tags(illust)),
+        tl_tags=", ".join(f"<code>{x}</code>" for x in pixiv.get_translated_tags(illust))
     )
     try:
         if len(illusts) == 1:
@@ -134,9 +143,9 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                         (
                             "Download",
                             None,
-                            "{web}/pixiv/{url}".format(
+                            "{web}/pixiv?url={url}".format(
                                 web=web_url,
-                                url=(
+                                url=illusts[0] if illusts[0] is str else (
                                     await pixiv.get_illust_download_url(illust=illust)
                                 )[0],
                             ),
@@ -146,10 +155,19 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                 ],
                 application=context.application,
             )
+            if full_resolution:
+                photo = "{web}/pixiv?url={url}".format(
+                    web=web_url,
+                    url=illusts[0],
+                )
+                _logger.debug(photo)
+            else:
+                photo = illusts[0][0].getvalue()
             await message.reply_photo(
-                photo=illusts[0][0].getvalue(),
+                photo=photo,
                 filename=illusts[0][1],
                 caption=caption,
+                parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=dl_button),
             )
         else:
@@ -163,7 +181,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                     )
                 elif isinstance(x[0], str):
                     _logger.debug(x[0])
-                    media_url = "{web}/pixiv/{url}".format(
+                    media_url = "{web}/pixiv?url={url}".format(
                         web=web_url,
                         url=x[0],
                     )
@@ -319,7 +337,7 @@ async def pixiv_related_cmd(
                 (
                     "Download",
                     None,
-                    "{web}/pixiv/{url}".format(
+                    "{web}/pixiv?url={url}".format(
                         web=web_url,
                         url=(await pixiv.get_illust_download_url(illust=illust))[0],
                     ),
@@ -513,7 +531,7 @@ async def pixiv_search_cmd(
                 (
                     "Download",
                     None,
-                    "{web}/pixiv/{url}".format(
+                    "{web}/pixiv?url={url}".format(
                         web=web_url,
                         url=(
                             await pixiv.get_illust_download_url(illust=illusts_search)

@@ -10,7 +10,7 @@ from threading import Thread
 from urllib.parse import urlparse
 
 from appdirs import user_cache_dir
-from flask import send_file, Flask
+from flask import send_file, Flask, request
 from pixivpy3 import *
 
 
@@ -204,10 +204,19 @@ class Pixiv:
         return images
 
     @staticmethod
-    def _get_raw_tags(image) -> list[str]:
+    def get_raw_tags(image) -> list[str]:
         tags = []
         for tag in image["tags"]:
             tags.append(tag["name"])
+        return tags
+
+    @staticmethod
+    def get_translated_tags(image) -> list[str]:
+        tags = []
+        for tag in image["tags"]:
+            if tag["translated_name"] is None:
+                continue
+            tags.append(tag["translated_name"])
         return tags
 
     def _image_from_tag_matching(
@@ -242,8 +251,8 @@ class Pixiv:
             logger.debug(f"Current selected image: {image_count}")
             searched_images.append(image_count)
             current_image = images[image_count]
-            logger.debug(f"Raw tags: {self._get_raw_tags(current_image)}")
-            r18_image = "R-18" in self._get_raw_tags(current_image)
+            logger.debug(f"Raw tags: {self.get_raw_tags(current_image)}")
+            r18_image = "R-18" in self.get_raw_tags(current_image)
             if r18_image and "r-18" not in tags:
                 logger.debug("Image is a R-18 but we don't want R-18")
                 continue
@@ -555,9 +564,12 @@ class Pixiv:
         logger = self._logger.getChild("flask-api")
         logger.info("Initializing pixiv Flask route...")
 
-        @app.route(route + "/<path:url>", methods=["GET"])
-        async def pixiv_api(url):
+        @app.route(route, methods=["GET"])
+        async def pixiv_api():
             logger.info("Got a /pixiv request")
+            url = request.args.get('url')
+            if url is None:
+                return "You need to pass an url query", 400
             parsed = urlparse(url)
             path = None
             if parsed.netloc != "":
