@@ -366,8 +366,8 @@ async def pixiv_search_cmd(
     tags_orig: list[str] = copy(tags)
     related: bool = True
     sort_popular: bool = False
-    sort: str = None
-    notice_msg: telegram.Message = None
+    sort: str | None = None
+    notice_msg: telegram.Message | None = None
     # Telegram workaround when you type -- in chat
     _help_tags: set[str] = {"-H", "--help", "—help"}.intersection(tags_set)
     _p_tags: set[str] = {"-P", "--popular", "—popular"}.intersection(tags_set)
