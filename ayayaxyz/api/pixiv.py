@@ -52,7 +52,8 @@ class PixivSearchRelatedError(PixivSearchError):
 
 class Pixiv:
     def __init__(self):
-        self._pixiv = AppPixivAPI()
+        self._pixiv = ByPassSniApi()
+        self._pixiv.require_appapi_hosts()
         self._session = requests_cache.CachedSession("ayayaxyz-api-pixiv")
         self._path = Path("./pixiv")
         self._logger = logging.getLogger("ayayaxyz.api.pixiv")
