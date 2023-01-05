@@ -564,9 +564,20 @@ class Pixiv:
         logger = self._logger.getChild("flask-api")
         logger.info("Initializing pixiv Flask route...")
 
-        @app.route(route, methods=["GET"])
-        async def pixiv_api():
-            logger.info("Got a /pixiv request")
+        @app.route(route + "/id", methods=["GET"])
+        async def pixiv_id_api():
+            logger.info("Got a /pixiv/id request")
+            px_id = request.args.get('id')
+            if px_id is None:
+                return "You need to pass an id query", 400
+            px_page = request.args.get('page') or 0
+            pic_url = (await self.download_illust(illust=px_id, pictures=[px_page], to_url=True))[0][0]
+            request.args.add("url", pic_url)
+            self.pixiv_raw_api()
+
+        @app.route(route + "/raw", methods=["GET"])
+        async def pixiv_raw_api():
+            logger.info("Got a /pixiv/raw request")
             url = request.args.get('url')
             if url is None:
                 return "You need to pass an url query", 400
