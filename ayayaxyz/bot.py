@@ -85,10 +85,10 @@ async def pixiv_id_cmd(
     illust_id = get_id[1]
     error_buttons = None
     notice_msg_txt = ""
-    if quick:
+    if full_resolution:
+        notice_msg_txt = "\n<b>Note</b>: <code>fid</code> is an experimental implementation and may fail to send images"
+    elif not quick:
         notice_msg_txt = "\n<b>Note</b>: <code>qid</code> does the same thing but provides higher performance & stability (in exchange for worse resolution)"
-    elif full_resolution:
-        notice_msg_txt = "\n<b>Note</b>: <code>fid</code> is an experimental implementation and will usually fail to send images"
     notice_msg = await helper.reply_status(
         message=message,
         text="""Selected page(s): <code>{selected_images}</code>
@@ -134,7 +134,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
     notice = None
     caption = "https://www.pixiv.net/en/artworks/{illust_id}{notice}\nTags: {tags}\nTags (translated): {tl_tags}".format(
         illust_id=illust_id,
-        notice="\nThis image has low resolution, use <code>id</code> to get higher resolution."
+        notice="\nThis image has low resolution, use <code>id</code>/<code>fid</code> to get higher resolution."
         if quick else "",
         tags=", ".join(f"<code>{x}</code>" for x in pixiv.get_raw_tags(illust)),
         tl_tags=", ".join(f"<code>{x}</code>" for x in pixiv.get_translated_tags(illust))
@@ -150,7 +150,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                             "{web}/pixiv/raw?url={url}".format(
                                 web=web_url,
                                 url=illusts[0][0] if illusts[0][0] is str else (
-                                    await pixiv.get_illust_download_url(illust=illust)
+                                    await pixiv.get_illust_download_url(illust=illust, pictures=pictures)
                                 )[0],
                             ),
                             "url",
@@ -295,7 +295,7 @@ async def pixiv_related_cmd(
                 tags_orig.append("-P")
             if no_related:
                 tags_orig.append("--no-related")
-            print(type(tags_orig))
+            _logger.debug(type(tags_orig))
             clone_context = copy(context)
             clone_context.args = ",".join(tags_orig).split(" ")
             return await pixiv_search_cmd(
@@ -334,7 +334,7 @@ async def pixiv_related_cmd(
             search_row,
             [
                 (
-                    "HD & All pages",
+                    "All pages",
                     cb_getoriginalres,
                     "pixiv-search-cb-originalimage-{id}",
                 ),
@@ -358,7 +358,7 @@ async def pixiv_related_cmd(
             filename=illusts[0][1],
             caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
                 illust_id=illust["id"],
-                notice="\nThis image has low resolution, click <i>HD</i> to get higher resolution"
+                notice="\nThis image has low resolution, click <i>All pages</i> to get higher resolution"
                 if quick
                 else "",
             ),
@@ -528,7 +528,7 @@ async def pixiv_search_cmd(
             ],
             [
                 (
-                    "Hi-res & All pages",
+                    "All pages",
                     cb_getoriginalres,
                     "pixiv-search-cb-originalimage-{id}",
                 ),
@@ -554,7 +554,7 @@ async def pixiv_search_cmd(
             filename=illusts[0][1],
             caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
                 illust_id=illusts_search["id"],
-                notice="\nThis image has low resolution, click <i>Hi-res</i> to get higher resolution & all pages"
+                notice="\nThis image has low resolution, click <i>All pages</i> to get higher resolution"
                 if quick
                 else "",
             ),
