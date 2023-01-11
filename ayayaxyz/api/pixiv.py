@@ -125,19 +125,19 @@ class Pixiv:
             )
         return illust
 
-    @staticmethod
     async def get_illust_download_url(
-        illust: dict, pictures: list[int] | None = None, quality: str = "original"
+        self, illust: dict, pictures: list[int] | None = None, quality: str = "original"
     ) -> list[str]:
-        print("Fetching {}".format(illust["id"]))
+        logger: logging.Logger = self._logger.getChild("get_illust_download_url")
+        logger.debug("Fetching {}".format(illust["id"]))
         if illust["meta_single_page"] == {}:
-            print("Multiple pages illustration.")
+            logger.debug("Multiple pages illustration.")
             images = []
             for index, page in enumerate(illust["meta_pages"]):
                 if pictures is None or pictures == [] or index in pictures:
                     images.append(page["image_urls"][quality])
             return images
-        print("Single page illustration.")
+        logger.debug("Single page illustration.")
         if quality == "original":
             illust_dl = illust["meta_single_page"]["original_image_url"]
         else:
@@ -158,9 +158,10 @@ class Pixiv:
                     len(pictures), limit
                 )
             )
-        print("Fetching {}".format(illust["id"]))
+        logger: logging.Logger = self._logger.getChild("download_illust")
+        logger.debug("Fetching {}".format(illust["id"]))
         if illust["meta_single_page"] == {}:
-            print("Multiple pages illustration.")
+            logger.debug("Multiple pages illustration.")
             if limit is not None:
                 if not pictures and len(illust["meta_pages"]) > limit:
                     raise PixivDownloadError(
@@ -190,7 +191,7 @@ class Pixiv:
                 except PixivError as e:
                     raise PixivDownloadError(e)
             return images
-        print("Single page illustration.")
+        logger.debug("Single page illustration.")
         if quality == "original":
             illust_dl = illust["meta_single_page"]["original_image_url"]
         else:
@@ -372,7 +373,7 @@ class Pixiv:
         tags_orig = tags
         exclude_tags = set(x for x in tags if x.startswith("-"))
         tags = set(tags) - exclude_tags
-        print(tags, exclude_tags)
+        logger.debug("{} - {}".format(tags, exclude_tags))
         filter = ""
         # if "R-18" not in tags and "r-18" not in tags:
         #     # Be safe here, no NSFW ;)
@@ -380,10 +381,10 @@ class Pixiv:
         attempt = 0
         image: dict | None = None
         while image is None and attempt < max_attempt:
-            print("Search attempt", attempt)
+            logger.debug("Search attempt: {}".format(attempt))
             if sort is None:
                 sort = ["date_desc", "popular_desc"][randint(0, 1)]
-            print(sort)
+            logger.debug(sort)
             try:
                 result = (
                     await asyncio.to_thread(
@@ -412,7 +413,7 @@ class Pixiv:
                             pass
                         related_attempt += 1
                     if related_image:
-                        print("Found related image matches our query")
+                        logger.debug("Found related image matches our query")
                         image = related_image
             except (KeyError, PixivSearchError):
                 pass
