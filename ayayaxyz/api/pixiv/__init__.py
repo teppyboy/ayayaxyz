@@ -3,6 +3,7 @@ import logging
 import sys
 import time
 import requests_cache
+from zipfile import ZipFile
 from io import BytesIO
 from pathlib import Path, PurePath
 from random import randint
@@ -13,41 +14,7 @@ from appdirs import user_cache_dir
 from flask import send_file, Flask, request
 from pixivpy3 import *
 
-
-class PixivException(Exception):
-    """Base class for all Pixiv errors"""
-
-    pass
-
-
-class PixivLoginError(PixivException):
-    """Raised when login Pixiv failed with error"""
-
-    pass
-
-
-class PixivGetIllustrationFailed(PixivException):
-    """Raised when get illust information failed"""
-
-    pass
-
-
-class PixivDownloadError(PixivException):
-    """Raised when download illustration failed"""
-
-    pass
-
-
-class PixivSearchError(PixivException):
-    """Raised when searching for image failed"""
-
-    pass
-
-
-class PixivSearchRelatedError(PixivSearchError):
-    """Raised when searching for related image failed"""
-
-    pass
+from .exceptions import *
 
 
 class Pixiv:
@@ -55,13 +22,15 @@ class Pixiv:
         self._pixiv = ByPassSniApi()
         # self._pixiv.require_appapi_hosts()
         self._session = requests_cache.CachedSession("ayayaxyz-api-pixiv")
-        self._path = Path("./pixiv")
+        self._path = Path("./pixiv-cache")
         self._logger = logging.getLogger("ayayaxyz.api.pixiv")
         if not self._path.is_dir():
             self._path = Path(
                 user_cache_dir("ayayaxyz-telegram", "tretrauit")
             ).joinpath("pixiv-api")
             self._path.mkdir(parents=True, exist_ok=True)
+        self._ugoira_cache = self._path.joinpath("ugoira-cache")
+        self._ugoira_cache.mkdir(exist_ok=True)
         self._logger.info("Pixiv API cache path: {}".format(self._path))
         # Tag translation
         self._pixiv.set_accept_language("en-us")
@@ -77,7 +46,7 @@ class Pixiv:
                 try:
                     self._pixiv.auth(refresh_token=refresh_token)
                 except PixivError as e:
-                    raise PixivLoginError(e)
+                    raise LoginError(e)
                 time.sleep(randint(900, 1200))
 
         self._login_thread = Thread(target=_login)
@@ -96,7 +65,7 @@ class Pixiv:
                 headless=True, user=username, pass_=password
             )
         except Exception as e:
-            raise PixivLoginError(e)
+            raise LoginError(e)
         self.login_token(refresh_token=login_rsp.get("refresh_token"))
 
     async def _download_illust(
@@ -114,21 +83,73 @@ class Pixiv:
         )
         return image_bytes, image_name
 
+    async def _download_ugoira(self, url: str) -> Path:
+        file_name = PurePath(url).name
+        file_stem = PurePath(url).stem
+        await asyncio.to_thread(self._pixiv.download, url, path=str(self._ugoira_cache))
+        file_path = self._ugoira_cache.joinpath(file_name)
+        extract_path = self._ugoira_cache.joinpath(file_stem)
+        extract_path.mkdir(exist_ok=True)
+        with ZipFile(file_path, "r") as f:
+            f.extractall(extract_path)
+        return extract_path
+
+    async def _convert_ugoira_to_webm(self, ugoira_path: Path, fps: float) -> Path:
+        converted = self._ugoira_cache.joinpath("converted")
+        converted.mkdir(exist_ok=True)
+        out = converted.joinpath(ugoira_path.with_suffix(".webm").name)
+        args = ["ffmpeg", "-y", "-c:v", "libvpx-vp9"]
+        for image in ugoira_path.iterdir():
+            args += ["-i", f"{image}"]
+        args += ["-r", f"{int(fps)}", f'{out}']
+        proc = await asyncio.create_subprocess_exec(*args)
+        retcode = await proc.wait()
+        if retcode != 0:
+            raise RuntimeError("Convert error")
+        return out
+
+    async def get_video_from_ugoira(self, illust_id: int, ugoira: dict = None) -> Path:
+        if not ugoira:
+            ugoira = await self.get_ugoira_from_id(illust_id=illust_id)
+        print(ugoira)
+        frm_delay = 0
+        for frame in ugoira["body"]["frames"]:
+            frm_delay += frame["delay"]
+        fps = 1000 / (frm_delay / len(ugoira["body"]["frames"]))
+        dl_path = await self._download_ugoira(ugoira["body"]["originalSrc"])
+        video = await self._convert_ugoira_to_webm(dl_path, fps=fps)
+        return video
+
+    async def get_ugoira_from_id(self, illust_id: int) -> dict:
+        ugoira: dict = self._pixiv.no_auth_requests_call(
+            "GET",
+            "https://www.pixiv.net/ajax/illust/{}/ugoira_meta".format(illust_id)
+        ).json()
+        if ugoira["error"]:
+            if ugoira["message"] == "The ID you provided is not an Ugoira":
+                raise NotAnUgoiraError(ugoira["message"])
+            raise GetUgoiraError(ugoira["message"])
+        return ugoira
+
+    async def get_ugoira(self, illust: dict) -> dict:
+        if illust["type"] != "ugoira":
+            raise NotAnUgoiraError("The ID you provided is not an Ugoira")
+        return await self.get_ugoira_from_id(illust_id=illust["id"])
+
     async def get_illust_from_id(self, illust_id: int) -> dict:
         try:
             illust = (await asyncio.to_thread(self._pixiv.illust_detail, illust_id))[
                 "illust"
             ]
         except KeyError as e:
-            raise PixivGetIllustrationFailed(
-                "Failed to get illust with error: {}".format(e)
-            )
+            raise GetIllustrationError("Failed to get illust with error: {}".format(e))
         return illust
 
     async def get_illust_download_url(
         self, illust: dict, pictures: list[int] | None = None, quality: str = "original"
     ) -> list[str]:
         logger: logging.Logger = self._logger.getChild("get_illust_download_url")
+        logger.debug("{}".format(str(illust)))
         logger.debug("Fetching {}".format(illust["id"]))
         if illust["meta_single_page"] == {}:
             logger.debug("Multiple pages illustration.")
@@ -153,7 +174,7 @@ class Pixiv:
         to_url: bool | None = False,
     ):
         if limit is not None and pictures is not None and len(pictures) > limit:
-            raise PixivDownloadError(
+            raise DownloadError(
                 "Images list exceeded limit ({} while limit is {})".format(
                     len(pictures), limit
                 )
@@ -164,7 +185,7 @@ class Pixiv:
             logger.debug("Multiple pages illustration.")
             if limit is not None:
                 if not pictures and len(illust["meta_pages"]) > limit:
-                    raise PixivDownloadError(
+                    raise DownloadError(
                         "Images exceeded limit ({} while limit is {})".format(
                             len(illust["meta_pages"]), limit
                         )
@@ -189,7 +210,7 @@ class Pixiv:
                 try:
                     images = await asyncio.gather(*images_job)
                 except PixivError as e:
-                    raise PixivDownloadError(e)
+                    raise DownloadError(e)
             return images
         logger.debug("Single page illustration.")
         if quality == "original":
@@ -202,7 +223,7 @@ class Pixiv:
             try:
                 images = [await self._download_illust(illust_dl)]
             except PixivError as e:
-                raise PixivDownloadError(e)
+                raise DownloadError(e)
         return images
 
     @staticmethod
@@ -242,9 +263,7 @@ class Pixiv:
         while image is None:
             logger.debug(f"Previous image: {searched_images}")
             if len(searched_images) == len(images):
-                raise PixivSearchError(
-                    "Couldn't find any images matching provided keywords"
-                )
+                raise SearchError("Couldn't find any images matching provided keywords")
             while True:
                 logger.debug(f"Image array size: {len(images)}")
                 image_count = randint(0, len(images) - 1)
@@ -339,23 +358,25 @@ class Pixiv:
         else:
             exclude_tags = None
             tags = set()
-        logger.debug("ID: {}, tags: {}, exclude_tags: {}".format(illust_id, tags, exclude_tags))
+        logger.debug(
+            "ID: {}, tags: {}, exclude_tags: {}".format(illust_id, tags, exclude_tags)
+        )
         try:
             result = (await asyncio.to_thread(self._pixiv.illust_related, illust_id))[
                 "illusts"
             ]
             logger.debug("{}".format(result))
         except KeyError as e:
-            raise PixivSearchRelatedError(e)
+            raise SearchRelatedError(e)
 
         try:
             image = self._image_from_tag_matching(
                 result, tags=tags, exclude_tags=exclude_tags
             )
-        except PixivSearchError as e:
-            raise PixivSearchRelatedError(e)
+        except SearchError as e:
+            raise SearchRelatedError(e)
         if image["id"] == illust_id:
-            raise PixivSearchRelatedError(
+            raise SearchRelatedError(
                 "Related image has the same ID as the original image."
             )
         if recurse == 0:
@@ -410,17 +431,17 @@ class Pixiv:
                             related_image = await self.related_illust(
                                 image["id"], tags=tags_orig
                             )
-                        except PixivSearchRelatedError:
+                        except SearchRelatedError:
                             pass
                         related_attempt += 1
                     if related_image:
                         logger.debug("Found related image matches our query")
                         image = related_image
-            except (KeyError, PixivSearchError):
+            except (KeyError, SearchError):
                 pass
             attempt += 1
         if image is None:
-            raise PixivSearchError("No images matches specified tags")
+            raise SearchError("No images matches specified tags")
         return image
 
     @staticmethod
@@ -529,7 +550,7 @@ class Pixiv:
         max_related_attempt=None,
     ):
         if tags is None:
-            raise PixivSearchError("No tags specified.")
+            raise SearchError("No tags specified.")
         max_attempt = 5 if not max_attempt else max_attempt
         max_related_attempt = 5 if not max_related_attempt else max_related_attempt
         return await self._search_illust(
@@ -567,21 +588,37 @@ class Pixiv:
         logger = self._logger.getChild("flask-api")
         logger.info("Initializing pixiv Flask route...")
 
+        @app.route(route + "/ugoira/video", methods=["GET"])
+        async def pixiv_ugoira_api():
+            logger.info("Got a /pixiv/ugoira/video request")
+            px_id = request.args.get("id")
+            if px_id is None:
+                return "You need to pass an id query", 400
+            try:
+                video = await self.get_video_from_ugoira(px_id)
+            except GetUgoiraError as e:
+                return str(e), 403
+            return send_file(path_or_file=Path("..").joinpath(video), etag=True)
+
         @app.route(route + "/id", methods=["GET"])
         async def pixiv_id_api():
             logger.info("Got a /pixiv/id request")
-            px_id = request.args.get('id')
+            px_id = request.args.get("id")
             if px_id is None:
                 return "You need to pass an id query", 400
-            px_page = request.args.get('page') or 0
-            pic_url = (await self.download_illust(illust=px_id, pictures=[px_page], to_url=True))[0][0]
+            px_page = request.args.get("page") or 0
+            pic_url = (
+                await self.download_illust(
+                    illust=px_id, pictures=[px_page], to_url=True
+                )
+            )[0][0]
             request.args.add("url", pic_url)
             self.pixiv_raw_api()
 
         @app.route(route + "/raw", methods=["GET"])
         async def pixiv_raw_api():
             logger.info("Got a /pixiv/raw request")
-            url = request.args.get('url')
+            url = request.args.get("url")
             if url is None:
                 return "You need to pass an url query", 400
             parsed = urlparse(url)

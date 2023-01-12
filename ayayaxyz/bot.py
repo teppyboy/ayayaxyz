@@ -17,14 +17,13 @@ from telegram.ext import (
 from telegram.error import TelegramError
 from ayayaxyz.api.pixiv import (
     Pixiv,
-    PixivDownloadError,
-    PixivSearchError,
-    PixivLoginError,
+    DownloadError,
+    SearchError,
+    LoginError,
 )
 from flask import Flask
 from waitress import serve
 from threading import Thread
-from urllib.parse import quote_plus
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 _logger = logging.getLogger("ayayaxyz")
@@ -52,7 +51,11 @@ def _pixiv_get_id(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _pixiv_dl_illust(
-    quick: bool, illust, pictures: list[int], message: telegram.Message, to_url: bool = False
+    quick: bool,
+    illust,
+    pictures: list[int],
+    message: telegram.Message,
+    to_url: bool = False,
 ) -> list | dict:
     quality = "original"
     if quick:
@@ -61,7 +64,7 @@ async def _pixiv_dl_illust(
         illusts = await pixiv.download_illust(
             illust=illust, pictures=pictures, quality=quality, limit=9, to_url=to_url
         )
-    except PixivDownloadError as e:
+    except DownloadError as e:
         msg_kwargs = {
             "message": message,
             "text": "Failed to fetch illustration: <code>{}</code>".format(e),
@@ -102,6 +105,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         silent=True,
     )
     if fast:
+
         async def cb_tryid(_: Update, __: CallbackContext):
             return await pixiv_id_cmd(update, context)
 
@@ -142,13 +146,15 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
     notice = ""
     if quick:
         notice += "\nThis image has low resolution, use <code>id</code>/<code>fid</code> to get higher resolution."
-    if len(illust) > 1:
+    if len(illusts) > 1:
         notice += "\nUse <code>fid</code>/<code>id</code>/<code>qid</code> with a single page to get the download url."
     caption = "https://www.pixiv.net/en/artworks/{illust_id}{notice}\nTags: {tags}\nTags (translated): {tl_tags}".format(
         illust_id=illust_id,
         notice=notice,
         tags=", ".join(f"<code>{x}</code>" for x in pixiv.get_raw_tags(illust)),
-        tl_tags=", ".join(f"<code>{x}</code>" for x in pixiv.get_translated_tags(illust))
+        tl_tags=", ".join(
+            f"<code>{x}</code>" for x in pixiv.get_translated_tags(illust)
+        ),
     )
     try:
         if len(illusts) == 1:
@@ -160,8 +166,12 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                             None,
                             "{web}/pixiv/raw?url={url}".format(
                                 web=web_url,
-                                url=illusts[0][0] if illusts[0][0] is str else (
-                                    await pixiv.get_illust_download_url(illust=illust, pictures=pictures)
+                                url=illusts[0][0]
+                                if illusts[0][0] is str
+                                else (
+                                    await pixiv.get_illust_download_url(
+                                        illust=illust, pictures=pictures
+                                    )
                                 )[0],
                             ),
                             "url",
@@ -265,7 +275,7 @@ async def pixiv_related_cmd(
         if translate_tags:
             try:
                 tags = await pixiv.translate_tags(tags=tags)
-            except PixivSearchError:
+            except SearchError:
                 pass
 
     _logger.debug("Formatted tags: {}".format(tags))
@@ -282,7 +292,7 @@ async def pixiv_related_cmd(
     )
     try:
         illust = await pixiv.related_illust(illust_id, tags=tags, recurse=3)
-    except PixivSearchError as e:
+    except SearchError as e:
         await helper.edit_error(
             message=notice_msg,
             text="Failed to search for related image: <code>{}</code>".format(e),
@@ -457,7 +467,7 @@ async def pixiv_search_cmd(
         )
         try:
             tags = await pixiv.translate_tags(tags=tags)
-        except PixivSearchError:
+        except SearchError:
             pass
 
     search_txt = "Searching for <code>{keyword}</code>{popular_mode}{no_related}...{notice}".format(
@@ -482,7 +492,7 @@ async def pixiv_search_cmd(
 
     try:
         illusts_search = await pixiv.search_illust(tags, sort=sort, related=related)
-    except PixivSearchError as e:
+    except SearchError as e:
         await helper.edit_error(
             message=notice_msg,
             text="Failed to search for image: <code>{}</code>".format(e),
@@ -625,7 +635,7 @@ def init_pixiv(application: Application) -> bool:
             _logger.info("Logging into Pixiv using credentials...")
             _logger.warning("It's recommended to use refresh token to login instead.")
             pixiv.login(os.getenv("PIXIV_USERNAME"), os.getenv("PIXIV_PASSWORD"))
-    except PixivLoginError as e:
+    except LoginError as e:
         _logger.error(
             "Logging into Pixiv failed, disabling Pixiv-related feature: {}".format(e)
         )

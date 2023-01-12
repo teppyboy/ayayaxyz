@@ -2,7 +2,7 @@
 lib/
 
 # Pixiv cache
-pixiv/
+pixiv-cache/
 
 # Database
 *.sqlite
