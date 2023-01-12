@@ -75,7 +75,7 @@ async def pixiv_id_cmd(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     quick: bool = False,
-    full_resolution: bool = False,
+    fast: bool = False,
 ):
     message = update.effective_message
     get_id = _pixiv_get_id(context=context)
@@ -85,7 +85,7 @@ async def pixiv_id_cmd(
     illust_id = get_id[1]
     error_buttons = None
     notice_msg_txt = ""
-    if full_resolution:
+    if fast:
         notice_msg_txt = "\n<b>Note</b>: <code>fid</code> is an experimental implementation and may fail to send images"
     elif not quick:
         notice_msg_txt = "\n<b>Note</b>: <code>qid</code> does the same thing but provides higher performance & stability (in exchange for worse resolution)"
@@ -101,7 +101,15 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         ),
         silent=True,
     )
-    if not quick:
+    if fast:
+        async def cb_tryid(_: Update, __: CallbackContext):
+            return await pixiv_id_cmd(update, context)
+
+        error_buttons = helper.buttons_build(
+            [[("Try again with id", cb_tryid, "pixiv-id-tryid-{id}")]],
+            application=context.application,
+        )
+    elif not quick:
 
         async def cb_tryqid(_: Update, __: CallbackContext):
             return await pixiv_id_cmd(update, context, quick=True)
@@ -117,7 +125,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         return
     illust = await pixiv.get_illust_from_id(illust_id)
     to_url = False
-    if full_resolution:
+    if fast:
         to_url = True
 
     illusts = await _pixiv_dl_illust(
@@ -131,11 +139,14 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
         await helper.edit_error(**illusts)
         return
     _logger.debug("Trying to send images bytes...")
-    notice = None
+    notice = ""
+    if quick:
+        notice += "\nThis image has low resolution, use <code>id</code>/<code>fid</code> to get higher resolution."
+    if len(illust) > 1:
+        notice += "\nUse <code>fid</code>/<code>id</code>/<code>qid</code> with a single page to get the download url."
     caption = "https://www.pixiv.net/en/artworks/{illust_id}{notice}\nTags: {tags}\nTags (translated): {tl_tags}".format(
         illust_id=illust_id,
-        notice="\nThis image has low resolution, use <code>id</code>/<code>fid</code> to get higher resolution."
-        if quick else "",
+        notice=notice,
         tags=", ".join(f"<code>{x}</code>" for x in pixiv.get_raw_tags(illust)),
         tl_tags=", ".join(f"<code>{x}</code>" for x in pixiv.get_translated_tags(illust))
     )
@@ -159,7 +170,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                 ],
                 application=context.application,
             )
-            if full_resolution:
+            if fast:
                 photo = "{web}/pixiv/raw?url={url}".format(
                     web=web_url,
                     url=illusts[0][0],
@@ -327,7 +338,7 @@ async def pixiv_related_cmd(
     async def cb_getoriginalres(cb_update: Update, _: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illust["id"])]
-        return await pixiv_id_cmd(cb_update, clone_context)
+        return await pixiv_id_cmd(cb_update, clone_context, fast=True)
 
     buttons = helper.buttons_build(
         [
@@ -518,7 +529,7 @@ async def pixiv_search_cmd(
     async def cb_getoriginalres(cb_update: Update, _: CallbackContext):
         clone_context = copy(context)
         clone_context.args = [str(illusts_search["id"])]
-        return await pixiv_id_cmd(cb_update, clone_context)
+        return await pixiv_id_cmd(cb_update, clone_context, fast=True)
 
     buttons = helper.buttons_build(
         [
@@ -584,7 +595,7 @@ async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             case "qid":
                 await pixiv_id_cmd(update=update, context=context, quick=True)
             case "fid":
-                await pixiv_id_cmd(update=update, context=context, full_resolution=True)
+                await pixiv_id_cmd(update=update, context=context, fast=True)
             case "search":
                 await pixiv_search_cmd(
                     update=update, parent_logger=logger, context=context
