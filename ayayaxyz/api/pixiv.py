@@ -217,6 +217,7 @@ class Pixiv:
         tags = []
         for tag in image["tags"]:
             if tag["translated_name"] is None:
+                tags.append(tag["name"])
                 continue
             tags.append(tag["translated_name"])
         return tags
