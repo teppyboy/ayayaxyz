@@ -47,20 +47,14 @@ Search an image from the given keywords, which is seperated by ",".
 
 > E.g: `/pixiv search Ayaka, Ayato, -P, --no-related, -Keqing`: This will search for image with "Ayaka", "Ayato" *without* searching for related image and "Keqing" tag.
 
+#### `qsearch`
+
+A quick variant of `search`, provides result faster but worse resolution.
+
 #### `id`
 
 Fetch image(s) from the given ID/url, and optionally only fetch specified pages (seperated by " ")
 > E.g: `/pixiv id https://www.pixiv.net/en/artworks/99945929` or `/pixiv id 99945929`
-
-#### `related`
-
-Search a related image from the given ID/url, and optionally specify tags (following `search` rules) to check the related image against, which will improve the image search result.
-
-> E.g: `/pixiv related https://www.pixiv.net/en/artworks/99945929 Eula, -Keqing` or `/pixiv related 99945929`
-
-#### `qsearch`
-
-A quick variant of `search`, provides result faster but worse resolution.
 
 #### `qid`
 
@@ -70,8 +64,15 @@ A quick variant of `id`, provides result faster but worse resolution.
 
 An experimental variant of `id` which uses AyayaXYZ internal server to post Telegram images instead of uploading it directly.
 
-By doing this it'll achieve faster upload speed (even faster than `qid`) and provides nearly-good image (same as `id`) (original image is not possible since Telegram compresses images by bot)
-but a major drawback is if the webserver dies, this function will stop working.
+By doing this it'll achieve faster upload speed (even faster than `qid`) and provides nearly-good image (same as `id`) (original image is not possible since Telegram compresses images by bot) but a major drawback is if the webserver dies, this function will stop working.
+
+> This can be workaround by using a reliable reverse proxy like [pixiv.re](https://pixiv.re)
+
+#### `related`
+
+Search a related image from the given ID/url, and optionally specify tags (following `search` rules) to check the related image against, which will improve the image search result.
+
+> E.g: `/pixiv related https://www.pixiv.net/en/artworks/99945929 Eula, -Keqing` or `/pixiv related 99945929`
 
 #### `qrelated`
 
