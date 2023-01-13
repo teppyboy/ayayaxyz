@@ -74,6 +74,18 @@ async def _pixiv_dl_illust(
     return illusts
 
 
+def _pixiv_photo_from_str_or_bytes(illust_dls: list, fast: bool = False):
+    if fast:
+        photo = "{web}/pixiv/raw?url={url}".format(
+            web=web_url,
+            url=illust_dls[0][0],
+        )
+        _logger.debug(photo)
+    else:
+        photo = illust_dls[0][0].getvalue()
+    return photo
+
+
 async def pixiv_id_cmd(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -180,14 +192,7 @@ Fetching <code>{illust_id}</code>...{notice}""".format(
                 ],
                 application=context.application,
             )
-            if fast:
-                photo = "{web}/pixiv/raw?url={url}".format(
-                    web=web_url,
-                    url=illusts[0][0],
-                )
-                _logger.debug(photo)
-            else:
-                photo = illusts[0][0].getvalue()
+            photo = _pixiv_photo_from_str_or_bytes(illust_dls=illusts, fast=fast)
             await message.reply_photo(
                 photo=photo,
                 filename=illusts[0][1],
@@ -245,6 +250,7 @@ async def pixiv_related_cmd(
     sort_popular: bool = False,
     no_related: bool = False,
     translate_tags: bool = True,
+    fast: bool = False,
 ):
     message = update.effective_message
     get_id = _pixiv_get_id(context=context)
@@ -280,13 +286,23 @@ async def pixiv_related_cmd(
 
     _logger.debug("Formatted tags: {}".format(tags))
 
+    notice_txt = ""
+    if fast:
+        notice_txt = "<code>frelated</code> is an experimental implementation and may fail to send image"
+    elif not quick:
+        notice_txt = "<code>qrelated</code> is faster & more reliable for worse image quality."
+    
+    if notice_txt != "":
+        notice_txt = "\n<b>Note:</b> " + notice_txt
+
     notice_msg = await helper.reply_status(
         message=message,
-        text="""Searching for image related to <code>{illust_id}</code>{with_tags}...""".format(
+        text="""Searching for image related to <code>{illust_id}</code>{with_tags}...{notice}""".format(
             illust_id=illust_id,
             with_tags=" with tags <code>{}</code>".format(", ".join(tags))
             if tags
             else "",
+            notice=notice_txt,
         ),
         silent=True,
     )
@@ -301,7 +317,7 @@ async def pixiv_related_cmd(
         return
 
     illusts = await _pixiv_dl_illust(
-        quick=quick, illust=illust, pictures=[0], message=notice_msg
+        quick=quick, illust=illust, pictures=[0], message=notice_msg, to_url=fast
     )
     if illusts is dict:
         await helper.edit_error(**illusts)
@@ -325,6 +341,7 @@ async def pixiv_related_cmd(
                 parent_logger=parent_logger,
                 quick=quick,
                 translate_tags=translate_tags,
+                fast=fast,
             )
 
         search_row.append(("Next", cb_next, "pixiv-search-cb-next-{id}"))
@@ -341,6 +358,7 @@ async def pixiv_related_cmd(
             sort_popular=sort_popular,
             no_related=no_related,
             translate_tags=translate_tags,
+            fast=fast
         )
 
     search_row.append(("Related", cb_related, "pixiv-search-cb-related-{id}"))
@@ -373,9 +391,10 @@ async def pixiv_related_cmd(
         application=context.application,
     )
 
+    photo = _pixiv_photo_from_str_or_bytes(illust_dls=illusts, fast=fast)
     try:
         await message.reply_photo(
-            photo=illusts[0][0].getvalue(),
+            photo=photo,
             filename=illusts[0][1],
             caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
                 illust_id=illust["id"],
@@ -400,6 +419,7 @@ async def pixiv_search_cmd(
     parent_logger: logging.Logger,
     quick: bool = False,
     translate_tags: bool = None,
+    fast: bool = False,
 ):
     logger = parent_logger.getChild("search")
     message: telegram.Message = update.effective_message
@@ -470,14 +490,20 @@ async def pixiv_search_cmd(
         except SearchError:
             pass
 
+    notice_txt = ""
+    if fast:
+        notice_txt = "<code>fsearch</code> is an experimental implementation and may fail to send image"
+    elif not quick:
+        notice_txt = "<code>qsearch</code> is faster & more reliable for worse image quality."
+    
+    if notice_txt != "":
+        notice_txt = "\n<b>Note:</b> " + notice_txt
+
     search_txt = "Searching for <code>{keyword}</code>{popular_mode}{no_related}...{notice}".format(
         keyword=", ".join(tags),
         popular_mode=" in popular mode" if sort == "popular_desc" else "",
         no_related=" without searching related image" if not related else "",
-        notice="\n<b>Note:</b> "
-        + "<code>qsearch</code> is faster & more reliable for worse image quality."
-        if not quick
-        else "",
+        notice=notice_txt,
     )
     if not notice_msg:
         notice_msg = await helper.reply_status(
@@ -501,7 +527,7 @@ async def pixiv_search_cmd(
         return
 
     illusts = await _pixiv_dl_illust(
-        quick=quick, illust=illusts_search, pictures=[0], message=notice_msg
+        quick=quick, illust=illusts_search, pictures=[0], message=notice_msg, to_url=fast
     )
     if illusts is dict:
         await helper.edit_error(**illusts)
@@ -516,6 +542,7 @@ async def pixiv_search_cmd(
             parent_logger=parent_logger,
             quick=quick,
             translate_tags=translate_tags,
+            fast=fast,
         )
 
     async def cb_related(_: Update, __: CallbackContext):
@@ -534,6 +561,7 @@ async def pixiv_search_cmd(
             sort_popular=sort_popular,
             no_related=not related,
             translate_tags=translate_tags,
+            fast=fast,
         )
 
     async def cb_getoriginalres(cb_update: Update, _: CallbackContext):
@@ -569,9 +597,11 @@ async def pixiv_search_cmd(
         application=context.application,
     )
 
+    photo = _pixiv_photo_from_str_or_bytes(illust_dls=illusts, fast=fast)
+    _logger.debug(photo)
     try:
         await message.reply_photo(
-            photo=illusts[0][0].getvalue(),
+            photo=photo,
             filename=illusts[0][1],
             caption="https://www.pixiv.net/en/artworks/{illust_id}{notice}".format(
                 illust_id=illusts_search["id"],
@@ -614,6 +644,10 @@ async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await pixiv_search_cmd(
                     update=update, parent_logger=logger, context=context, quick=True
                 )
+            case "fsearch":
+                await pixiv_search_cmd(
+                    update=update, parent_logger=logger, context=context, fast=True
+                )
             case "related":
                 await pixiv_related_cmd(
                     update=update, context=context, parent_logger=logger
@@ -621,6 +655,10 @@ async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             case "qrelated":
                 await pixiv_related_cmd(
                     update=update, context=context, parent_logger=logger, quick=True
+                )
+            case "qrelated":
+                await pixiv_related_cmd(
+                    update=update, context=context, parent_logger=logger, fast=True
                 )
             case _:
                 await helper.reply_error(message=message, text="Invalid command.")
