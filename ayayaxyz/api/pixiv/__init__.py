@@ -596,19 +596,23 @@ class Pixiv:
             try:
                 video = await self.get_video_from_ugoira(px_id)
             except GetUgoiraError as e:
-                return str(e), 403
+                return str(e), 500
             return send_file(path_or_file=Path("..").joinpath(video), etag=True)
 
         @app.route(route + "/id", methods=["GET"])
         async def pixiv_id_api():
             logger.info("Got a /pixiv/id request")
-            px_id = int(request.args.get("id"))
+            try:
+                px_id = int(request.args.get("id"))
+            except ValueError as e:
+                return str(e), 400
             if px_id is None:
                 return "You need to pass an id query", 400
             px_page = int(request.args.get("page") or 0)
+            px_quality = request.args.get("quality") or "original"
             pic_url = (
                 await self.download_illust(
-                    illust=await self.get_illust_from_id(px_id), pictures=[px_page], to_url=True
+                    illust=await self.get_illust_from_id(px_id), pictures=[px_page], quality=px_quality, to_url=True
                 )
             )[0][0]
             # Remove "https://""
@@ -625,6 +629,7 @@ class Pixiv:
         async def pixiv_raw_api():
             logger.info("Got a /pixiv/raw request")
             url = request.args.get("url")
+            px_quality = request.args.get("quality") or "original"
             if url is None:
                 return "You need to pass an url query", 400
             parsed = urlparse(url)
@@ -651,6 +656,6 @@ class Pixiv:
             full_path = Path("..").joinpath(self._path.joinpath(path))
             if not self._path.joinpath(path).is_file():
                 logger.info("File doesn't exist, downloading...")
-                await self._download_illust(url=url, path=path)
+                await self._download_illust(url=url, path=path, quality=px_quality)
             logger.info("Sending file...")
             return send_file(path_or_file=full_path, etag=True)
