@@ -629,7 +629,6 @@ class Pixiv:
         async def pixiv_raw_api():
             logger.info("Got a /pixiv/raw request")
             url = request.args.get("url")
-            px_quality = request.args.get("quality") or "original"
             if url is None:
                 return "You need to pass an url query", 400
             parsed = urlparse(url)
@@ -656,6 +655,6 @@ class Pixiv:
             full_path = Path("..").joinpath(self._path.joinpath(path))
             if not self._path.joinpath(path).is_file():
                 logger.info("File doesn't exist, downloading...")
-                await self._download_illust(url=url, path=path, quality=px_quality)
+                await self._download_illust(url=url, path=path)
             logger.info("Sending file...")
             return send_file(path_or_file=full_path, etag=True)
