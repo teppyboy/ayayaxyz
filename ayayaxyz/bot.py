@@ -29,7 +29,7 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 _logger = logging.getLogger("ayayaxyz")
 
 app = Flask(__name__)
-app.use_x_sendfile = True
+# app.use_x_sendfile = True
 pixiv = Pixiv()
 web_url = os.getenv("WEB_URL", "http://127.0.0.1:8080")
 
