@@ -101,7 +101,7 @@ class Pixiv:
         args = ["ffmpeg", "-y", "-c:v", "libvpx-vp9"]
         for image in ugoira_path.iterdir():
             args += ["-i", f"{image}"]
-        args += ["-r", f"{int(fps)}", f'{out}']
+        args += ["-r", f"{int(fps)}", f"{out}"]
         proc = await asyncio.create_subprocess_exec(*args)
         retcode = await proc.wait()
         if retcode != 0:
@@ -122,8 +122,7 @@ class Pixiv:
 
     async def get_ugoira_from_id(self, illust_id: int) -> dict:
         ugoira: dict = self._pixiv.no_auth_requests_call(
-            "GET",
-            "https://www.pixiv.net/ajax/illust/{}/ugoira_meta".format(illust_id)
+            "GET", "https://www.pixiv.net/ajax/illust/{}/ugoira_meta".format(illust_id)
         ).json()
         if ugoira["error"]:
             if ugoira["message"] == "The ID you provided is not an Ugoira":
@@ -603,17 +602,24 @@ class Pixiv:
         @app.route(route + "/id", methods=["GET"])
         async def pixiv_id_api():
             logger.info("Got a /pixiv/id request")
-            px_id = request.args.get("id")
+            px_id = int(request.args.get("id"))
             if px_id is None:
                 return "You need to pass an id query", 400
-            px_page = request.args.get("page") or 0
+            px_page = int(request.args.get("page")) or 0
             pic_url = (
                 await self.download_illust(
-                    illust=px_id, pictures=[px_page], to_url=True
+                    illust=await self.get_illust_from_id(px_id), pictures=[px_page], to_url=True
                 )
             )[0][0]
-            request.args.add("url", pic_url)
-            self.pixiv_raw_api()
+            # Remove "https://""
+            path = Path(pic_url[8:])
+            # Workaround because Flask treat the module path as the base path instead
+            full_path = Path("..").joinpath(self._path.joinpath(path))
+            if not self._path.joinpath(path).is_file():
+                logger.info("File doesn't exist, downloading...")
+                await self._download_illust(url=pic_url, path=path)
+            logger.info("Sending file...")
+            return send_file(path_or_file=full_path, etag=True)
 
         @app.route(route + "/raw", methods=["GET"])
         async def pixiv_raw_api():
