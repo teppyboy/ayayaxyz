@@ -605,7 +605,7 @@ class Pixiv:
             px_id = int(request.args.get("id"))
             if px_id is None:
                 return "You need to pass an id query", 400
-            px_page = int(request.args.get("page")) or 0
+            px_page = int(request.args.get("page") or 0)
             pic_url = (
                 await self.download_illust(
                     illust=await self.get_illust_from_id(px_id), pictures=[px_page], to_url=True
