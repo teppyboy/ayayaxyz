@@ -109,9 +109,10 @@ class Pixiv:
         return out
 
     async def get_video_from_ugoira(self, illust_id: int, ugoira: dict = None) -> Path:
+        logger = self._logger.getChild("get_video_from_ugoira")
         if not ugoira:
             ugoira = await self.get_ugoira_from_id(illust_id=illust_id)
-        print(ugoira)
+        logger.debug(ugoira)
         frm_delay = 0
         for frame in ugoira["body"]["frames"]:
             frm_delay += frame["delay"]
@@ -646,6 +647,8 @@ class Pixiv:
                     return "Must be a i.pximg.net url", 400
                 url = "https:/" + parsed.path
                 path = parsed.path.removeprefix("/i.pximg.net/")
+            if ".." in parsed.path:
+                return "Illegal url provided", 403
             logger.info("Got file: {}".format(url))
             # Remove the root "/" in the path from url.
             if path is None:
