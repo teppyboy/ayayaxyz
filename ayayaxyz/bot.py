@@ -707,6 +707,7 @@ def main():
     init_flask()
     _logger.info("Loading default commands...")
     _logger.info("Logging level: {}".format(loglevel))
+    _logger.info("Web API Url: {}".format(web_url))
     _logger.debug("Say hi!")
     application.add_handlers([CommandHandler("start", start_cmd)])
     application.run_polling()

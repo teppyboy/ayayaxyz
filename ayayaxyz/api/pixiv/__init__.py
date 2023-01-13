@@ -598,7 +598,7 @@ class Pixiv:
                 video = await self.get_video_from_ugoira(px_id)
             except GetUgoiraError as e:
                 return str(e), 500
-            return send_file(path_or_file=Path("..").joinpath(video), etag=True)
+            return send_file(path_or_file=Path("..").joinpath(video), etag=True, download_name=video.name)
 
         @app.route(route + "/id", methods=["GET"])
         async def pixiv_id_api():
@@ -624,7 +624,7 @@ class Pixiv:
                 logger.info("File doesn't exist, downloading...")
                 await self._download_illust(url=pic_url, path=path)
             logger.info("Sending file...")
-            return send_file(path_or_file=full_path, etag=True)
+            return send_file(path_or_file=full_path, etag=True, download_name=path.name)
 
         @app.route(route + "/raw", methods=["GET"])
         async def pixiv_raw_api():
@@ -660,4 +660,4 @@ class Pixiv:
                 logger.info("File doesn't exist, downloading...")
                 await self._download_illust(url=url, path=path)
             logger.info("Sending file...")
-            return send_file(path_or_file=full_path, etag=True)
+            return send_file(path_or_file=full_path, etag=True, download_name=path.name)
