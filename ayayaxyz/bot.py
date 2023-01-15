@@ -43,17 +43,7 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def _pixiv_get_id(context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) == 0:
         return False, "You need to provide either an illustration ID or its url."
-    if "https://www.pixiv.net/" in context.args[0]:
-        if "/artworks/" in context.args[0]:
-            illust_id = int(context.args[0].split("/")[-1])
-        elif "illust_id=" in context.args[0]:
-            illust_id = int(context.args[0].split("illust_id=")[1])
-    else:
-        try:
-            illust_id = int(context.args[0])
-        except ValueError:
-            return False, "Invalid provided illustration ID."
-    return True, illust_id
+    return pixiv.get_id_from_str(context.args[0])
 
 
 async def _pixiv_dl_illust(

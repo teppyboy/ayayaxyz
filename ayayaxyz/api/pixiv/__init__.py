@@ -145,6 +145,22 @@ class Pixiv:
             raise GetIllustrationError("Failed to get illust with error: {}".format(e))
         return illust
 
+    @staticmethod
+    def get_id_from_str(string: str) -> int | str:
+        if "https://www.pixiv.net/" in string:
+            if "/artworks/" in string:
+                illust_id = int(string.split("/")[-1])
+            elif "illust_id=" in string:
+                illust_id = int(string.split("illust_id=")[1])
+            else:
+                return False, "Invalid provided illustration url."
+        else:
+            try:
+                illust_id = int(string)
+            except ValueError:
+                return False, "Invalid provided illustration ID."
+        return True, illust_id
+
     async def get_illust_download_url(
         self, illust: dict, pictures: list[int] | None = None, quality: str = "original"
     ) -> list[str]:
@@ -603,12 +619,15 @@ class Pixiv:
         @app.route(route + "/id", methods=["GET"])
         async def pixiv_id_api():
             logger.info("Got a /pixiv/id request")
-            try:
-                px_id = int(request.args.get("id"))
-            except ValueError as e:
-                return str(e), 400
+            # Workaround for illust_id url https://www.pixiv.net/member_illust.php?mode=medium&illust_id=xxxxxxxxx
+            if request.args.get("illust_id"):
+                px_id = self.get_id_from_str(request.args.get("illust_id"))[1]
+            else:
+                px_id = self.get_id_from_str(request.args.get("id"))[1]
             if px_id is None:
                 return "You need to pass an id query", 400
+            if isinstance(px_id, str):
+                return px_id, 400
             px_page = int(request.args.get("page") or 0)
             px_quality = request.args.get("quality") or "original"
             pic_url = (
