@@ -21,6 +21,7 @@ from ayayaxyz.api.pixiv import (
     SearchError,
     LoginError,
 )
+from saucerer import Saucerer, SaucererError
 from flask import Flask
 from waitress import serve
 from threading import Thread
@@ -31,6 +32,7 @@ _logger = logging.getLogger("ayayaxyz")
 app = Flask(__name__)
 # app.use_x_sendfile = True
 pixiv = Pixiv()
+saucerer = Saucerer()
 web_url = os.getenv("WEB_URL", "http://127.0.0.1:8080")
 
 
@@ -41,8 +43,11 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def _pixiv_get_id(context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) == 0:
         return False, "You need to provide either an illustration ID or its url."
-    if "https://www.pixiv.net/" in context.args[0] and "/artworks/" in context.args[0]:
-        illust_id = int(context.args[0].split("/")[-1])
+    if "https://www.pixiv.net/" in context.args[0]:
+        if "/artworks/" in context.args[0]:
+            illust_id = int(context.args[0].split("/")[-1])
+        elif "illust_id=" in context.args[0]:
+            illust_id = int(context.args[0].split("illust_id=")[1])
     else:
         try:
             illust_id = int(context.args[0])
@@ -662,7 +667,7 @@ async def pixiv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     update=update, context=context, parent_logger=logger, fast=True
                 )
             case _:
-                await helper.reply_error(message=message, text="Invalid command.")
+                await helper.reply_error(message=message, text="Invalid sub-command.")
 
 
 def init_pixiv(application: Application) -> bool:
@@ -696,6 +701,23 @@ def init_flask():
     thread.daemon = True
     thread.start()
 
+async def sauce_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.effective_message
+    # logger = _logger.getChild("commands.sauce")
+    image_url = context.args[0]
+    status_msg = await helper.reply_status(message=message, text="Fetching sauce...", silent=True)
+    try:
+        results = await saucerer.search(image=image_url, hidden=False)
+    except SaucererError as e:
+        await helper.edit_status(status_msg, f"Failed to fetch sauce: <code>{e}</code>")
+        return
+    if len(results) == 0:
+        await helper.edit_status(status_msg, f"Couldn't find sauce for this image (Sauce result is 0)")
+        return
+    reply_txt = "<b>Result:</b>\n"
+    for result in results:
+        reply_txt += f'ID: <code>{result.sauce.id}</code> - <a href="{result.sauce.url}">URL</a> - Match: {result.match_percentage * 100}%\n'
+    await helper.edit_html(status_msg, reply_txt)
 
 def main():
     # Initialize task unrelated to Telegram bot itself.
@@ -709,5 +731,5 @@ def main():
     _logger.info("Logging level: {}".format(loglevel))
     _logger.info("Web API Url: {}".format(web_url))
     _logger.debug("Say hi!")
-    application.add_handlers([CommandHandler("start", start_cmd)])
+    application.add_handlers([CommandHandler("sauce", sauce_cmd), CommandHandler("start", start_cmd)])
     application.run_polling()
