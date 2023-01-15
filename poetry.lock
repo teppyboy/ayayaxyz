@@ -1590,7 +1590,7 @@ idna2008 = ["idna"]
 
 [[package]]
 name = "saucerer"
-version = "0.2.0"
+version = "0.3.0"
 description = "A SauceNAO web scrapper written in Python"
 category = "main"
 optional = false
@@ -1605,8 +1605,8 @@ beautifulsoup4 = "^4.11.1"
 [package.source]
 type = "git"
 url = "https://github.com/teppyboy/saucerer"
-reference = "HEAD"
-resolved_reference = "132ba6f505204067743a36407869797b9ae96116"
+reference = "v0.3.0"
+resolved_reference = "95a1ae0f93d7aab0aa413c1802d604478a27657d"
 
 [[package]]
 name = "selenium"
@@ -2081,4 +2081,4 @@ login = ["gppt"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "0531ff07c490ffee8390ea8e4a954d35201e06e6b00f58e4ba383954a7cab9fe"
+content-hash = "6dbdac43f27a4d3fac878ad356c73c8fccc46eaf0c3735c293df2986233d3ca5"
