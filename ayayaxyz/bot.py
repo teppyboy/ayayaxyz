@@ -697,16 +697,16 @@ async def sauce_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     image_url = context.args[0]
     status_msg = await helper.reply_status(message=message, text="Fetching sauce...", silent=True)
     try:
-        results = await saucerer.search(image=image_url, hidden=False)
+        result = await saucerer.search(image=image_url, hidden=False)
     except SaucererError as e:
         await helper.edit_status(status_msg, f"Failed to fetch sauce: <code>{e}</code>")
         return
-    if len(results) == 0:
+    if len(result.sauces) == 0:
         await helper.edit_status(status_msg, f"Couldn't find sauce for this image (Sauce result is 0)")
         return
     reply_txt = "<b>Result:</b>\n"
-    for result in results:
-        reply_txt += f'ID: <code>{result.illust.id}</code> - <a href="{result.illust.url}">URL</a> - Match: {result.match_percentage * 100}%\n'
+    for sauce in result.sauces:
+        reply_txt += f'ID: <code>{result.illust.id}</code> - <a href="{sauce.illust.url}">URL</a> - Match: {sauce.match_percentage * 100}%\n'
     await helper.edit_html(status_msg, reply_txt)
 
 def main():
