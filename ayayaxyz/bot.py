@@ -706,7 +706,7 @@ async def sauce_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     reply_txt = "<b>Result:</b>\n"
     for sauce in result.sauces:
-        reply_txt += f'ID: <code>{result.illust.id}</code> - <a href="{sauce.illust.url}">URL</a> - Match: {sauce.match_percentage * 100}%\n'
+        reply_txt += f'ID: <code>{sauce.illust.id}</code> - <a href="{sauce.illust.url}">URL</a> - Match: {sauce.match_percentage * 100}%\n'
     await helper.edit_html(status_msg, reply_txt)
 
 def main():
