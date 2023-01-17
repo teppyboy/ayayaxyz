@@ -704,9 +704,34 @@ async def sauce_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(result.sauces) == 0:
         await helper.edit_status(status_msg, f"Couldn't find sauce for this image (Sauce result is 0)")
         return
-    reply_txt = "<b>Result:</b>\n"
+    reply_txt = """<b>Result:</b>\n"""
     for sauce in result.sauces:
-        reply_txt += f'ID: <code>{sauce.illust.id}</code> - <a href="{sauce.illust.url}">URL</a> - Match: {sauce.match_percentage * 100}%\n'
+        if not (sauce.illust.id and sauce.illust.url) and len(sauce.misc_info) == 0:
+            continue
+        first = True
+        if sauce.illust.id:
+            reply_txt += f"ID: <code>{sauce.illust.id}</code>"
+            first = False
+        if sauce.illust.url:
+            if not first:
+                reply_txt += ' - '
+            else:
+                first = False
+            reply_txt += f'<a href="{sauce.illust.url}">URL</a>'
+        if not first:
+            reply_txt += ' - '
+        else:
+            first = False
+        reply_txt += f"{sauce.match_percentage * 100}%\n"
+        # reply_txt += f'ID: <code>{sauce.illust.id}</code> - <a href="{sauce.illust.url}">URL</a> - {sauce.match_percentage * 100}%\n'
+        if len(sauce.misc_info) > 0:
+            reply_txt += "  ▸ Mirror" + ("s" if len(sauce.misc_info) > 1 else "") + ": "
+        miscs = []
+        for url in sauce.misc_info:
+            miscs.append(f'<a href="{url.url}">{url.provider.title()}</a>')
+        reply_txt += ", ".join(miscs)
+        if len(sauce.misc_info) > 0:
+            reply_txt += "\n"
     await helper.edit_html(status_msg, reply_txt)
 
 def main():

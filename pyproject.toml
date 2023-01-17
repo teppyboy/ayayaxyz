@@ -14,7 +14,7 @@ Flask = {extras = ["async"], version = "^2.2.2"}
 appdirs = "^1.4.4"
 waitress = "^2.1.2"
 requests-cache = "^0.9.6"
-saucerer = {git = "https://github.com/teppyboy/saucerer", rev = "v0.4.2"}
+saucerer = {git = "https://github.com/teppyboy/saucerer", rev = "v0.4.3"}
 
 [tool.poetry.dev-dependencies]
 pyre-check = "^0.9.16"
