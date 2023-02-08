@@ -462,23 +462,24 @@ class Pixiv:
 
     @staticmethod
     def _translate_tag_legacy(img, tag) -> str:
-        print(img["tags"])
+        # print(img["tags"])
         for img_tag in img["tags"]:
             kw_set = set(tag.lower().split(" "))
-            print(kw_set, img_tag["translated_name"])
+            # print(kw_set, img_tag["translated_name"])
             if img_tag["translated_name"] is not None and kw_set.issubset(
                 img_tag["translated_name"].lower().split(" ")
             ):
-                print("tl trigger")
+                # print("tl trigger")
                 tag = img_tag["name"]
                 break
-        print("final translated tag", tag)
+        # print("final translated tag", tag)
         return tag
 
     async def translate_tags_legacy(self, tags: list[str]) -> list[str]:
+        logger: logging.Logger = self._logger.getChild("translate_tags_legacy")
         tl_tags = []
         for tag in tags:
-            print("Begin translate tag", tag)
+            logger.debug("Begin translate tag {}".format(tag))
             if tag.lower() == "r-18":
                 tl_tags.append("R-18")
                 continue
@@ -492,12 +493,13 @@ class Pixiv:
                 ),
                 tag=tag,
             )
-            print("Translated tag", tl_tag)
+            logger.debug("Translated tag {}".format(tl_tag))
             tl_tags.append(tl_tag)
-        print("Final translated tags", tl_tags)
+        logger.debug("Final translated tags {}".format(tl_tags))
         return tl_tags
 
     def _translate_tag(self, tag_kw: set[str], kw: str) -> str:
+        # TODO: Rewrite using aiohttp
         tag_name: str | None = None
         r = self._session.get(
             "https://www.pixiv.net/rpc/cps.php",
@@ -517,7 +519,7 @@ class Pixiv:
                 break
         return tag_name
 
-    async def translate_tags(self, tags: list[str]) -> list[str]:
+    async def translate_tags(self, tags: list[str], fallback: bool = True) -> list[str]:
         """
         Experimental tags translation using Pixiv Ajax API
         """
@@ -548,8 +550,19 @@ class Pixiv:
                     "Pixiv query search failed, using first word in tag to search..."
                 )
                 tl_tag_name = (
-                    self._translate_tag(tag_kw=tag_kw, kw=tag_list[0]) or tag_name
+                    self._translate_tag(tag_kw=tag_kw, kw=tag_list[0])
                 )
+            if tl_tag_name is None:
+                logger.debug(
+                    "Pixiv query search failed after retrying."
+                )
+                if fallback:
+                    logger.debug(
+                        "Using fallback method to search..."
+                    )
+                    tl_tag_name = (await self.translate_tags_legacy([tag_name]))[0]
+                else:
+                    tl_tag_name = tag_name
             if exclude_tag:
                 tl_tag_name = "-" + tag
             logger.debug("Translated tag: {}".format(tl_tag_name))
