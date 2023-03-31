@@ -1,6 +1,11 @@
 # ChromeDriver
 lib/
 
+# nuitka3
+*.build/
+*.bin
+*.dist
+
 # Pixiv cache
 pixiv-cache/
 

@@ -21,7 +21,8 @@ from ayayaxyz.api.pixiv import (
     SearchError,
     LoginError,
 )
-from saucerer import Saucerer, SaucererError
+from saucerer import Saucerer
+from saucerer.exceptions import SaucererError
 from flask import Flask
 from waitress import serve
 from threading import Thread
